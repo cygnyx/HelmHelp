@@ -1,2 +1,1 @@
-# HelpHelp
 Sail Racing assistant
