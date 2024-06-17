@@ -1,0 +1,9 @@
+{
+  "name": "Helm Help",
+  "short_name": "Helm Help",
+  "other_names": "Skipassist Navassist SkipperPal RacePal RaceMate SailMate NavMate SkipMate SailAssist HelmPal",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#fff",
+  "description": "Sail Racing helm help"
+}
