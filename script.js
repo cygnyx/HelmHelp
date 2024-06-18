@@ -65,8 +65,9 @@ function llfmt(c) {
 
 function positionupdate(position) {
     lastcoords = position.coords;
-    const ts = (new Date(Date.now())).toLocaleTimeString();
-    report('(' + llfmt(lastcoords) + ', ' + lastcoords.accuracy + ') at ' + ts);
+    const ts = (new Date(Date.now())).toLocaleTimeString().trim();
+    const a = ts.split(' ');
+    report('(' + llfmt(lastcoords) + ', ' + lastcoords.accuracy.toFixed(0) + ') at ' + a[0]);
 }
 
 function showlog () {
