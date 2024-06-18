@@ -4,7 +4,7 @@
     <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
     <meta name="apple-mobile-web-app-capable" content="yes" /> 
     <meta name="apple-mobile-web-app-status-bar-style" content="black" /> 
-    <link rel="apple-touch-icon" href="icon.png" /> 
+    <link rel="apple-touch-icon" href="icons/icon.png" /> 
 
     <!-- see https://appsco.pe/developer/splash-screens -->
     <link href="splashscreens/iphone5_splash.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)" rel="apple-touch-startup-image" />
@@ -41,10 +41,48 @@
     <div id="map"></div>
     <div id="overlay">
       <div class="sticky">
-	<a id="close" onclick="closeNav()">&times;</a>
+	<a id="close" onclick="closeoverlay()">&times;</a>
       </div>
       <div id="log"></div>
-      <div id="cfg"></div>
+      <div id="cfg">
+	Select Course:
+	<select id="racecourse" onChange="setcourse(this.options[this.selectedIndex].value);">
+	</select>
+	<br/>Race Start Time:
+	<select id="racestarttimes" onChange="setstart(this.options[this.selectedIndex].value);">
+	</select>
+	<br/>
+	Select Series:
+	<select id="raceseries" onChange="setseries(this.options[this.selectedIndex].value);">
+	</select>
+	<br/>
+	Routes URL:
+	<br/>
+	<input
+	  type="text" id="routesurl" pattern=".json$"
+	  placeholder="Location of the routes file"
+	  list="routesfiles"
+	  value="https://cygnyx.github.io/SailRacingRoutes/SFBayRoutes.json">
+	<datalist id="routesfiles">
+	  <option value="https://cygnyx.github.io/SailRacingRoutes/SFBayRoutes.json"></option>
+	</datalist>
+	<br/><button onclick="loadroutes();">Load Routes</button>
+	<br/>Waypoints URL:
+	<br/>
+	<input
+	  type="text" id="waypoints" pattern=".csv$"
+	  placeholder="Location of the waypoints file"
+	  list="waypointsfiles"
+	  value="https://raw.githubusercontent.com/nkiesel/YRA-Marks/master/San_Francisco.csv">
+	<datalist id="waypointsfiles">
+	  <option value="https://raw.githubusercontent.com/nkiesel/YRA-Marks/master/San_Francisco.csv"></option>
+	</datalist>
+	<br/><button onclick="loadwaypoints();">Load Waypoints</button>
+	<br/>Management
+	<br/><button onclick="cacheclear();">Clear cache</button>
+	<br/>Tools
+	<br/><a href="https://yoksel.github.io/url-encoder/">URL Encoder</a>
+      </div>
     </div>
   </body>
 </html>

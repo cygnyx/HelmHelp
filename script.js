@@ -1,34 +1,92 @@
 var map = null;
 var log = null;
 
+var raceseries = null;
+var racecourse = null;
+var racecoursedetails = {};
+
+var routes = null;
+var waypoints = null;
+
 var maplet = null;
+var mapcenter = null;
+
 var controls = null;
 var msg = null;
 var tracker = null;
 
 const CENTER_LAT_LNG = [37.866473, -122.317745];
 const HIGH_ACCURACY = true;
-const LOW_ACCURACY = false;
-const MAX_CACHE_AGE_MILLISECOND = 10*1000;
-const MAX_NEW_POSITION_MILLISECOND = 5*1000;
+
+const MAX_NEW_POSITION_MILLISECOND = 1*1000;
+const MAX_CACHE_AGE_MILLISECOND = 2*MAX_NEW_POSITION_MILLISECOND;
+
 const MAPTILE_SERVER = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const MAPTILE_CR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 //const MAPTILE_SERVER = 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png';
 //const MAPTILE_CR = '&copy; <a href="https://map.openseamap.org/legend.php?lang=en&page=license">OpenSeaMap</a>'
 
+const starttimes = [
+    "Now",
+    "+1 minute",
+    "+5 minutes",
+    "+10 minutes",
+    "@ :00",
+    "@ :05",
+    "@ :10",
+    "@ :15",
+    "@ :20",
+    "@ :25",
+    "@ :30",
+    "@ :35",
+    "@ :40",
+    "@ :45",
+    "@ :50",
+    "@ :55"
+];
+
 
 const trackOptions = {
   enableHighAccuracy: HIGH_ACCURACY,
   maximumAge: MAX_CACHE_AGE_MILLISECOND,
-  timeout: MAX_NEW_POSITION_MILLISECOND,
+  timeout: MAX_NEW_POSITION_MILLISECOND
 };
 
-function openNav() {
-    document.getElementById("overlay").style.width = "100%";
+function setstart(sname) {
+    var dt = new Date();
+    var gt = dt.getTime();
+
+    if (sname == 'Not Set') {racestart = null; return; }
+
+    idx = starttimes.indexOf(sname);
+    switch(idx) {
+    case 0: t = gt; break;
+    case 1: t = gt + 60000; break;
+    case 2: t = gt + 60000 * 5; break;
+    case 3: t = gt + 60000 * 10; break;
+    default:
+	dt.setSeconds(0);
+	mm = (idx - 4) * 5;
+	if (mm < 0) mm = 0;
+	else if (mm > 59) mm = 59
+	mmc = dt.getMinutes();
+	if (mm < mmc)
+	    dt.setHours(dt.getHours() + 1);
+	dt.setMinutes(mm);
+	t = dt.getTime();
+	break;
+    }
+    racestart = new Date(t);
 }
 
-function closeNav () {
-    document.getElementById("overlay").style.width = "0%";
+function setwidth(id, width) {
+    document.getElementById(id).style.width = width;
+}
+
+function closeoverlay () {
+    setwidth("overlay", "0%");
+    setwidth("log", "0%");
+    setwidth("cfg", "0%");
 }
 
 function report(message) {
@@ -78,9 +136,88 @@ function positionupdate(position) {
     report('(' + llfmt(lastcoords) + ', ' + lastcoords.accuracy.toFixed(0) + ') at ' + a[0]);
 }
 
+function roundinggetmarks(rounding) {
+    var typ = rounding.substring(0, 1);
+    var mrk = rounding.substring(2);
+    var a;
+    var marks;
+    if (typ == 'l') {
+	if (mrk in routes.lines) {
+	    a = routes.lines[mrk];
+	    marks = [a[0], a[1]];
+	}
+    } else if (typ == 'p' || typ == 's') {
+	marks = [mrk];
+    } else
+	marks = [];
+    return marks;
+}
+
+function mapracecourse() {
+    var minlat, maxlat;
+    var minlon, maxlon;
+    var marks = {};
+    var ftime = true;
+    var maplbl = [];
+    
+    if (racecourse) {
+	racecourse.forEach(function (rounding) {
+	    var a = roundinggetmarks(rounding);
+	    if (a)
+		a.forEach(function(e) {marks[e]=0;});
+	});
+    }
+    marks = Object.keys(marks).sort();
+
+    marks.forEach(function(mark) {
+	var m, newlat, newlon, ml;
+	if (mark in routes.waypoints.overrides)
+	    m = routes.waypoints.overrides[mark];
+	else if (mark in waypoints)
+	    m = waypoints[mark];
+	else
+	    m = null;
+	ml = null;
+	if (m) {
+	    newlat = m[0];
+	    newlon = m[1];
+	    ml = L.circle([newlat, newlon], {
+		color: '#f00',
+		fillColor: '#f00',
+		fillOpacity: 0.5,
+		radius: 15
+	    }).bindPopup(m[2]);
+	    if (ftime) {
+		minlat = maxlat = newlat;
+		minlon = maxlon = newlon;
+		ftime = false;
+	    } else {
+		if (minlat > newlat)
+		    minlat = newlat;
+		else if (maxlat < newlat)
+		    maxlat = newlat;
+		if (minlon > newlon)
+		    minlon = newlon;
+		else if (maxlon < newlon)
+		    maxlon = newlon;
+	    }
+	}
+	maplbl.push(ml);
+    });
+
+    racecoursedetails = {
+	'marks': marks,
+	'labels': maplbl,
+	'minlat': minlat,
+	'maxlat': maxlat,
+	'minlon': minlon,
+	'maxlon': maxlon
+    };
+}
+
 function showlog () {
-    report('showlog');
-    openNav();
+    setwidth("overlay", "100%");
+    setwidth("log", "100%");
 }
 
 function stoptracking () {
@@ -118,8 +255,192 @@ function showracestart() {
     report('showracestart');
 }
 
-function showconfig() {
-    report('showconfig');
+function showcfg() {
+    setwidth("overlay", "100%");
+    setwidth("cfg", "100%");
+}
+
+function setseries(sname) {
+    if (sname == 'Not Set') {
+	raceseries = null;
+	localStorage.removeItem("raceseries");
+    } else {
+	raceseries = sname;
+	localStorage.setItem("raceseries", sname);
+    }
+    setconfcourse();
+}
+
+// https://stackoverflow.com/questions/8493195/how-can-i-parse-a-csv-string-with-javascript-which-contains-comma-in-data
+function splitcsv(csv) {
+        var matches = csv.match(/(\s*"[^"]+"\s*|\s*[^,]+|,)(?=,|$)/g);
+        for (var n = 0; n < matches.length; ++n) {
+            matches[n] = matches[n].trim();
+            if (matches[n] == ',') matches[n] = '';
+        }
+        if (csv[0] == ',') matches.unshift("");
+        return matches;
+}
+
+function loadcachedwaypoints(csv) {
+    a = {};
+    s = 0
+    csv.split(/\r?\n/).forEach(function (line) {
+	if (line.length > 0 && s == 1) {
+	    i = splitcsv(line);
+	    j = []
+	    i.forEach(function(n){
+		m = n.length;
+		if ((n[0] == '"' && n[m-1] == '"') ||
+		    (n[0] == "'" && n[m-1] == "'"))
+		    n = n.substring(1,m-1);
+		j.push(n);
+	    });
+	    a[j[2]] = [parseFloat(j[0]), parseFloat(j[1]), j[3]];
+	}
+	s = 1
+    });
+    waypoints = a;
+}
+
+function loadcachedroutes(json) {
+    routes = JSON.parse(json);
+    for (const [n, v] of Object.entries(routes.waypoints.urls))
+	cachefile(v, loadcachedwaypoints);
+}
+
+function cacheclear() {
+    localStorage.clear();
+}
+
+async function cachefile(url, procfunc, init = null) {
+    if (!url || url == "")
+	return;
+    txt = localStorage.getItem(url);
+    if (txt === null) {
+	var r = await fetch(url, init);
+	txt = await r.text();
+	if (txt.length > 0) {
+	    localStorage.setItem(url, txt);
+	    procfunc(txt);
+	}
+    } else {
+	procfunc(txt);
+    }
+}
+
+function loadroutes() {
+    var url = document.getElementById("routesurl").value;
+    localStorage.setItem("routesurl", url);
+    cachefile(url, loadcachedroutes);
+    setconfseries();
+}
+
+function loadwaypoints() {
+    var url = document.getElementById("waypointsurl").value;
+    localStorage.setItem("waypointsurl", url);
+    cachefile(url, loadcachedwaypoints);
+}
+
+function setvalue(id) {
+    var txt = localStorage.getItem(id);
+    if (txt)
+	document.getElementById(id).value = txt;
+    return txt ? true : false;
+}
+
+function setconftimes() {
+    const e = document.getElementById("racestarttimes");
+    var h = "'<option>Not Set</option>'"
+    for (const s of starttimes)
+	h += '<option>'+s+'</option>';
+    e.innerHTML = h;
+}
+
+function setconfseries() {
+    const e = document.getElementById("raceseries");
+    var h = "'<option>Not Set</option>'"
+    if (routes) {
+	sl = Object.keys(routes.series).sort();
+	for (const s of sl)
+	    if (s != "help") {
+		if (e.value == s)
+		    h += '<option selected>'+s+'</option>';
+		else
+		    h += '<option>'+s+'</option>';
+	    }
+    }
+    e.innerHTML = h;
+}
+
+function setcourse(sname) {
+    if (racecourse) {
+	racecourse = null;
+	if (racecoursedetails) {
+	    if ('mapped' in racecoursedetails) {
+		var l = racecoursedetails['mapped'];
+		for (const e of l) {
+		    maplet.removeLayer(e);
+		}
+	    }
+	    racecoursedetails = null;
+	}
+    }
+    if (sname == 'Not Set') {
+	localStorage.removeItem("racecourse");
+    } else {
+	racecourse = routes.series[raceseries][sname];
+	localStorage.setItem("racecourse", sname);
+	mapracecourse();
+	mapracemarks();
+    }
+    if (mapcenter) {
+	mapcenter = midmap();
+	maplet.panTo(mapcenter);
+    }
+}
+
+function mapracemarks() {
+    if (!racecourse)
+	return;
+    var m = [];
+    racecoursedetails['labels'].forEach(function (e) {
+	e.addTo(maplet);
+	m.push(e);
+    });
+    racecoursedetails['mapped'] = m;
+}
+
+function setconfcourse() {
+    const e = document.getElementById("racecourse");
+    var h;
+    if (e.value)
+	h = "'<option>Not Set</option>'"
+    else
+	h = "'<option selected>Not Set</option>'"
+
+    var reg = /^\d+$/;
+
+    if (raceseries) {
+	cl = Object.keys(routes.series[raceseries]);
+	n = true
+	for (const s of cl)
+	    if (reg.test(s) == false) {
+		n = false;
+		break;
+	    }
+	if (n)
+	    cl = cl.sort(function(a, b) {return a-b;});
+	else
+	    cl = cl.sort();
+	for (const s of cl) {
+	    if (e.value == s)
+		h += '<option selected>'+s+'</option>';
+	    else
+		h += '<option>'+s+'</option>';
+	}
+    }
+    e.innerHTML = h;
 }
 
 function onload() {
@@ -138,7 +459,7 @@ function onload() {
     L.Control.Textbox = L.Control.extend({
 	options: { position: 'bottomleft' },
 	onAdd: function (map) {
-	    var container = L.DomUtil.create('div', 'leaflet-bar');
+	    var container = L.DomUtil.create('div', 'leaflet-control');
 	    container.id = 'msg';
 	    container.innerHTML = 'Initialized';
 	    return container;
@@ -183,7 +504,7 @@ function onload() {
 
             button = L.DomUtil.create('a', 'leaflet-control-button', container);
             L.DomEvent.disableClickPropagation(button);
-            L.DomEvent.on(button, 'click', showconfig);
+            L.DomEvent.on(button, 'click', showcfg);
 	    L.DomUtil.create('i', "fa fa-gear", button);
 
 	    // play stop map-pin ship
@@ -196,4 +517,18 @@ function onload() {
 
     controls = new L.Control.Controls();
     controls.addTo(maplet);
+
+    if (setvalue("routesurl")) {
+	loadroutes();
+	if (setvalue("raceseries")) {
+	    setseries(document.getElementById("raceseries").value);
+	    if (setvalue("racecourse")) {
+		setcourse(document.getElementById("racecourse").value);
+	    }
+	}
+    }
+    setvalue("waypointsurl");
+    setconftimes();
+    setconfseries();
+    setconfcourse();
 }

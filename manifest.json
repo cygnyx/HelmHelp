@@ -8,7 +8,7 @@
   "description": "Sail Racing Helm Help",
   "icons": [
     {
-      "src": "icon57.png",
+      "src": "icons/icon57.png",
       "sizes": "57x57",
       "type": "image/png"
     }
