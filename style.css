@@ -84,3 +84,11 @@ a i.fa {
   padding-right: 25px;
   font-size: 30px;
 }
+
+.show {
+    display: block;
+}
+
+.hide {
+    display: none;
+}

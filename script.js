@@ -19,7 +19,7 @@ const CENTER_LAT_LNG = [37.866473, -122.317745];
 const HIGH_ACCURACY = true;
 
 const MAX_NEW_POSITION_MILLISECOND = 1*1000;
-const MAX_CACHE_AGE_MILLISECOND = 2*MAX_NEW_POSITION_MILLISECOND;
+const MAX_CACHE_AGE_MILLISECOND = 20*MAX_NEW_POSITION_MILLISECOND;
 
 const MAPTILE_SERVER = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const MAPTILE_CR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -83,10 +83,23 @@ function setwidth(id, width) {
     document.getElementById(id).style.width = width;
 }
 
+function hide(id, p) {
+    var e = document.getElementById(id);
+    if (e) {
+	if (p) {
+	    L.DomUtil.addClass(e, 'hide');
+	    L.DomUtil.removeClass(e, 'show');
+	} else {
+	    L.DomUtil.addClass(e, 'show');
+	    L.DomUtil.removeClass(e, 'hide');
+	}
+    }
+}
+
 function closeoverlay () {
     setwidth("overlay", "0%");
-    setwidth("log", "0%");
-    setwidth("cfg", "0%");
+    hide("cfg", true);
+    hide("log", true);
 }
 
 function report(message) {
@@ -217,7 +230,7 @@ function mapracecourse() {
 
 function showlog () {
     setwidth("overlay", "100%");
-    setwidth("log", "100%");
+    hide("log", false);
 }
 
 function stoptracking () {
@@ -251,13 +264,9 @@ function markrc() {
     report('markrc');
 }
 
-function showracestart() {
-    report('showracestart');
-}
-
 function showcfg() {
     setwidth("overlay", "100%");
-    setwidth("cfg", "100%");
+    hide("cfg", false);
 }
 
 function setseries(sname) {
@@ -496,11 +505,6 @@ function onload() {
             L.DomEvent.disableClickPropagation(button);
             L.DomEvent.on(button, 'click', markpin);
 	    L.DomUtil.create('i', "fa fa-map-pin", button);
-
-            button = L.DomUtil.create('a', 'leaflet-control-button', container);
-            L.DomEvent.disableClickPropagation(button);
-            L.DomEvent.on(button, 'click', showracestart);
-	    L.DomUtil.create('i', "fa fa-hourglass", button);
 
             button = L.DomUtil.create('a', 'leaflet-control-button', container);
             L.DomEvent.disableClickPropagation(button);
