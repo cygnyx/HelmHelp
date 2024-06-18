@@ -5,5 +5,11 @@
   "start_url": ".",
   "display": "standalone",
   "background_color": "#fff",
-  "description": "Sail Racing helm help"
+  "description": "Sail Racing Helm Help",
+  "icons": [
+    {
+      "src": "icon57.png",
+      "sizes": "57x57",
+      "type": "image/png"
+    },
 }
