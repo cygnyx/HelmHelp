@@ -23,6 +23,14 @@ const trackOptions = {
   timeout: MAX_NEW_POSITION_MILLISECOND,
 };
 
+function openNav() {
+    document.getElementById("overlay").style.width = "100%";
+}
+
+function closeNav () {
+    document.getElementById("overlay").style.width = "0%";
+}
+
 function report(message) {
     log.innerHTML += '<br />' + message;
     msg.innerHTML = message;
@@ -71,7 +79,8 @@ function positionupdate(position) {
 }
 
 function showlog () {
-    console.log('showlow');
+    report('showlog');
+    openNav();
 }
 
 function stoptracking () {
@@ -98,19 +107,19 @@ function toggletracking () {
 }
 
 function markpin() {
-    console.log('markpin');
+    report('markpin');
 }
 
 function markrc() {
-    console.log('markrc');
+    report('markrc');
 }
 
 function showracestart() {
-    console.log('showracestart');
+    report('showracestart');
 }
 
 function showconfig() {
-    console.log('showconfig');
+    report('showconfig');
 }
 
 function onload() {
