@@ -131,7 +131,7 @@ function onload() {
 	onAdd: function (map) {
 	    var container = L.DomUtil.create('div', 'leaflet-bar');
 	    container.id = 'msg';
-	    container.innerHTML = 'Initializing';
+	    container.innerHTML = 'Initialized';
 	    return container;
 	},
 	onRemove: function(map) {}
