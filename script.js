@@ -27,35 +27,86 @@ function report(msg) {
 
 function errorreport(err) {
     report('No location information! ' + err.code + ' - ' + err.message);
+    stoptracking();
 }
 
 var lastcoords = null;
 
+function llfmt(c) {
+    if (c.latitude >= 0.0) {
+	lat = c.latitude.toFixed(6);
+	if (c.latitude < 10.0) sgn = "+0";
+	else sgn = "+";
+    } else {
+	lat = (-c.latitude).toFixed(6);
+	if (c.latitude < -10.0) sgn = "-";
+	else sgn = "-0";
+    }
+    lat = sgn + lat;
+
+    if (c.longitude >= 0.0) {
+	lon = c.longitude.toFixed(6);
+	if (c.longitude < 10.0) sgn = "+00";
+	else if (c.longitude < 100.0) sgn = "+0";
+	else sgn = "+";
+    } else {
+	lon = (-c.longitude).toFixed(6);
+	if (c.longitude < -100.0) sgn = "-";
+	else if (c.longitude < -10.0) sgn = "-0";
+	else sgn = "-00";
+    }
+    lon = sgn + lon;
+
+    return lat + ", " + lon;
+}
+
 function watchstarted(position) {
     lastcoords = position.coords;
-    const ts = (new Date(Date.now())).toISOString();
-    report('(' + lastcoords.latitude + ', ' + lastcoords.longitude + ', ' + lastcoords.accuracy + ') at ' + ts);
+    const ts = (new Date(Date.now())).toLocaleTimeString();
+    report('(' + llfmt(lastcoords) + ', ' + lastcoords.accuracy + ') at ' + ts);
 }
 
 function showlog () {
     console.log('showlow');
 }
 
+function stoptracking () {
+    var e = controls._container.firstChild.firstChild;
+    L.DomUtil.removeClass(e, 'fa-stop');
+    L.DomUtil.addClass(e, 'fa-play');
+    if (tracker) {
+	navigator.geolocation.clearWatch(tracker);
+	tracker = null;
+    }
+}
+
 function toggletracking () {
     var e = controls._container.firstChild.firstChild;
     
-    if (L.DomUtil.hasClass(e, 'fa-play')) {
+    if (L.DomUtil.hasClass(e, 'fa-play') && navigator.geolocation) {
 	L.DomUtil.removeClass(e, 'fa-play');
 	L.DomUtil.addClass(e, 'fa-stop');
 	tracker = navigator.geolocation.watchPosition(watchstarted, errorreport, trackOptions);
-    } else if (navigator.geolocation) {
-	L.DomUtil.removeClass(e, 'fa-stop');
-	L.DomUtil.addClass(e, 'fa-play');
-	if (tracker) {
-	    navigator.geolocation.clearWatch(tracker);
-	    tracker = null;
-	}
+    } else {
+	stoptracking();
     }
+
+}
+
+function markpin() {
+    console.log('markpin');
+}
+
+function markrc() {
+    console.log('markrc');
+}
+
+function showracestart() {
+    console.log('showracestart');
+}
+
+function showconfig() {
+    console.log('showconfig');
 }
 
 function onload() {
@@ -79,16 +130,36 @@ function onload() {
 
             button = L.DomUtil.create('a', 'leaflet-control-button', container);
             L.DomEvent.disableClickPropagation(button);
-            L.DomEvent.on(button, 'click', function(){ toggletracking(); });
+            L.DomEvent.on(button, 'click', toggletracking);
 	    L.DomUtil.create('i', 'fa fa-play', button);
 
             button = L.DomUtil.create('a', 'leaflet-control-button', container);
             L.DomEvent.disableClickPropagation(button);
-            L.DomEvent.on(button, 'click', function(){ showlog(); });
+            L.DomEvent.on(button, 'click', showlog);
 	    L.DomUtil.create('i', "fa fa-bars", button);
 
+            button = L.DomUtil.create('a', 'leaflet-control-button', container);
+            L.DomEvent.disableClickPropagation(button);
+            L.DomEvent.on(button, 'click', markrc);
+	    L.DomUtil.create('i', "fa fa-ship", button);
 
-	    // play stop bars flag anchor filter list tag info leaf ship wrench repeat road crosshairs map-pin
+            button = L.DomUtil.create('a', 'leaflet-control-button', container);
+            L.DomEvent.disableClickPropagation(button);
+            L.DomEvent.on(button, 'click', markpin);
+	    L.DomUtil.create('i', "fa fa-map-pin", button);
+
+            button = L.DomUtil.create('a', 'leaflet-control-button', container);
+            L.DomEvent.disableClickPropagation(button);
+            L.DomEvent.on(button, 'click', showracestart);
+	    L.DomUtil.create('i', "fa fa-hourglass", button);
+
+            button = L.DomUtil.create('a', 'leaflet-control-button', container);
+            L.DomEvent.disableClickPropagation(button);
+            L.DomEvent.on(button, 'click', showconfig);
+	    L.DomUtil.create('i', "fa fa-gear", button);
+
+	    // play stop map-pin ship
+	    // bars flag anchor filter list tag info leaf wrench repeat road crosshairs
 	    // hourglass hourglass-end
             return container;
 	},
