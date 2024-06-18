@@ -7,6 +7,12 @@ html, body, #map {
   z-index: 0;
 }
 
+#msg {
+  background-color: #fff;
+  color: #000;
+  width: 300px;
+}
+
 a i.fa {
     font-size: 20px;
     -ms-transform: translateY(+15%);

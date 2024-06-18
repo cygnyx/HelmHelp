@@ -1,7 +1,9 @@
 var map = null;
 var log = null;
+
 var maplet = null;
 var controls = null;
+var msg = null;
 var tracker = null;
 
 const CENTER_LAT_LNG = [37.866473, -122.317745];
@@ -21,8 +23,9 @@ const trackOptions = {
   timeout: MAX_NEW_POSITION_MILLISECOND,
 };
 
-function report(msg) {
-    log.innerHTML += '<br />' + msg;
+function report(message) {
+    log.innerHTML += '<br />' + message;
+    msg.innerHTML = message;
 }
 
 function errorreport(err) {
@@ -60,7 +63,7 @@ function llfmt(c) {
     return lat + ", " + lon;
 }
 
-function watchstarted(position) {
+function positionupdate(position) {
     lastcoords = position.coords;
     const ts = (new Date(Date.now())).toLocaleTimeString();
     report('(' + llfmt(lastcoords) + ', ' + lastcoords.accuracy + ') at ' + ts);
@@ -86,7 +89,7 @@ function toggletracking () {
     if (L.DomUtil.hasClass(e, 'fa-play') && navigator.geolocation) {
 	L.DomUtil.removeClass(e, 'fa-play');
 	L.DomUtil.addClass(e, 'fa-stop');
-	tracker = navigator.geolocation.watchPosition(watchstarted, errorreport, trackOptions);
+	tracker = navigator.geolocation.watchPosition(positionupdate, errorreport, trackOptions);
     } else {
 	stoptracking();
     }
@@ -121,6 +124,21 @@ function onload() {
 	attribution: MAPTILE_CR
     }).addTo(maplet);
 
+
+    L.Control.Textbox = L.Control.extend({
+	options: { position: 'bottomleft' },
+	onAdd: function (map) {
+	    var container = L.DomUtil.create('div', 'leaflet-bar');
+	    container.id = 'msg';
+	    container.innerHTML = 'Initializing';
+	    return container;
+	},
+	onRemove: function(map) {}
+    })
+
+    var tb = new L.Control.Textbox();
+    tb.addTo(maplet);
+    msg = document.getElementById("msg");
 
     L.Control.Controls = L.Control.extend({
 	options: { position: 'topleft' },
@@ -163,7 +181,7 @@ function onload() {
 	    // hourglass hourglass-end
             return container;
 	},
-	onRemove: function(map) {},
+	onRemove: function(map) {}
     });
 
     controls = new L.Control.Controls();
