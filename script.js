@@ -113,6 +113,7 @@ function errorreport(err) {
 }
 
 var lastcoords = null;
+var lasttime = null;
 
 function llfmt(c) {
     if (c.latitude >= 0.0) {
@@ -143,10 +144,25 @@ function llfmt(c) {
 }
 
 function positionupdate(position) {
+    if (lasttime == position.timestamp)
+	return;
+
     lastcoords = position.coords;
-    const ts = (new Date(Date.now())).toLocaleTimeString().trim();
-    const a = ts.split(' ');
-    report('(' + llfmt(lastcoords) + ', ' + lastcoords.accuracy.toFixed(0) + ') at ' + a[0]);
+    lat = lastcoords.latitude;
+    lon = lastcoords.longitude;
+    lasttime = position.timestamp;
+    
+    var e = new CustomEvent("GEO_EVENT", {
+	detail: {
+	    'latitude': lat,
+	    'longitude': lon,
+	    'time': lasttime
+	},
+	bubbles: true,
+	cancelable: true,
+	composed: false,
+    });
+    document.querySelector("#map").dispatchEvent(e);
 }
 
 function roundinggetmarks(rounding) {
@@ -253,15 +269,18 @@ function toggletracking () {
     } else {
 	stoptracking();
     }
+}
 
+function setmark(name) {
+    marks[name] = c;
 }
 
 function markpin() {
-    report('markpin');
+    setmark('Pin');
 }
 
 function markrc() {
-    report('markrc');
+    setmark('RC');
 }
 
 function showcfg() {
@@ -452,12 +471,140 @@ function setconfcourse() {
     e.innerHTML = h;
 }
 
+function updatemap(event) {
+    var d = event.detail;
+    drawnewsegment([d.latitude, d.longitude, d.time]);
+}
+
+function nmb(lat1, lon1, lat2, lon2) {
+    if ((lat1 == lat2) && (lon1 == lon2)) return [0., 0.];
+
+    const torad = Math.PI / 180.;
+    const todeg = 180. / Math.PI;
+    const radlat1 = lat1 * torad;
+    const radlat2 = lat2 * torad;
+    const radtheta = (lon2 - lon1) * torad;
+
+    var dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+    if (dist > 1)
+        dist = 1;
+    dist = Math.acos(dist) * todeg * 60 // 1 nmile = 1 minute
+    //console.log('dist: ' + dist);
+    
+    const y = Math.sin(radtheta) * Math.cos(radlat2);
+    const x = Math.cos(radlat1) * Math.sin(radlat2) -
+          Math.sin(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+    const brng = Math.atan2(y, x) * todeg;
+    //console.log('brng: ' + brng);
+
+    return [dist, (brng + 360) % 360];
+}
+
+var path = []; // lat, lon, time, meters from prior, knots, bearing
+
+function calcpath(idx) {
+
+    const tom = 1852;
+
+    const c = path[idx];
+    const p = path[idx-1];
+    const n = path[idx+1];
+
+    //console.log('idx: ' + idx);
+    //console.log('c: ' + c);
+    //console.log('p: ' + p);
+    //console.log('n: ' + n);
+    
+    var plat = p[0], plon = p[1], ptim = p[2];
+    var clat = c[0], clon = c[1], ctim = c[2];
+    var nlat = n[0], nlon = n[1], ntim = n[2];
+
+    var xp = nmb(plat, plon, clat, clon);
+    var xc = nmb(clat, clon, nlat, nlon);
+    var xn = nmb(plat, plon, nlat, nlon);
+
+    var dpc = xp[0], bpc = xp[1];
+    var dcn = xc[0], bcn = xc[1];
+    var dpn = xn[0], bpn = xn[1];
+
+    //console.log('ctim: ' + ctim);
+    //console.log('ptim: ' + ptim);
+    //console.log('ntim: ' + ntim);
+
+    //console.log('dpc: ' + dpc);
+    //console.log('dcn: ' + dcn);
+
+    var kpc = 1000 * 60 * 60 * dpc / (ctim - ptim); // nm/h
+    var kcn = 1000 * 60 * 60 * dcn / (ntim - ctim);
+
+    //console.log('kpc: ' + kpc);
+    //console.log('kcn: ' + kcn);
+
+    var k = (kcn + kpc) / 2;
+
+    path[idx] = [c[0], c[1], c[2], dpc * tom, k, bpn];
+    //console.log(path[idx]);
+
+    if (idx == 1)
+	path[idx] = [p[0], p[1], p[2], dpc * tom, k, bpn];
+}
+
+var lastline = null;
+var lastspeed = null;
+
+function drawline(idx) {
+    var old = true;
+    const c = path[idx];
+    const lat = c[0];
+    const lon = c[1];
+    const dis = c[3];
+    const knt = c[4];
+    const clr = ['#f60000', '#f70000', '#f80000', '#f90000', '#fa0000', '#fb0000', '#fc0000', '#fd0000', '#fe0000', '#ff0000'];
+    const cl = clr.length;
+    var k = Math.trunc(knt);
+    if (k >= cl)
+	k = cl - 1;
+    
+    if (!lastline || !lastspeed) {
+	old = false;
+    } else {
+	if (k != lastspeed)
+	    old = false;
+    }
+    if (old) {
+	lastline._latlngs.push([lat, lon]);
+	lastline.redraw();
+	return;
+    }
+    lastline = L.polyline([[lat, lon]], {
+	color: clr[k],
+	bubblingMouseEvents: true
+    }).addTo(maplet);
+
+    maplet.setView([lat, lon], 15);
+    //maplet.fitBounds(lastline.getBounds());
+    report(lastline.getBounds());
+}
+
+function drawnewsegment(detail) {
+    return new Promise(function (resolve) {
+	path.push([detail[0], detail[1], detail[2], 0.0, 0.0, 0.0]);
+	if (path.length > 2) {
+	    calcpath(path.length-2);
+	    drawline(path.length-2);
+	}
+	return resolve(detail);
+    });
+}
+
 function onload() {
     map = document.getElementById("map");
     log = document.getElementById("log");
 
     maplet = L.map("map");
     maplet.setView(CENTER_LAT_LNG, 13);
+
+    map.addEventListener("GEO_EVENT", updatemap);
 
     L.tileLayer(MAPTILE_SERVER, {
 	maxZoom: 19,
