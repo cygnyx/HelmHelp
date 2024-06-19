@@ -574,6 +574,7 @@ function drawline(idx) {
     if (old) {
 	lastline._latlngs.push([lat, lon]);
 	lastline.redraw();
+	report([lat, lon, k, 'old']);
 	return;
     }
     lastline = L.polyline([[lat, lon]], {
@@ -583,7 +584,9 @@ function drawline(idx) {
 
     maplet.setView([lat, lon], 15);
     //maplet.fitBounds(lastline.getBounds());
-    report(lastline.getBounds());
+    
+    lastspeed = k;
+    report([lat, lon, k, 'new']);
 }
 
 function drawnewsegment(detail) {
