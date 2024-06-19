@@ -565,22 +565,29 @@ function drawline(idx) {
     if (k >= cl)
 	k = cl - 1;
     
-    if (!lastline || !lastspeed) {
+    if ((lastline == null) || (lastspeed == null)) {
 	old = false;
+	report('no prior line ' + lastspeed);
     } else {
-	if (k != lastspeed)
+	if (k != lastspeed) {
+	    report('speed change from ' + lastspeed + ' to ' + k);
 	    old = false;
+	}
     }
+    
     if (old) {
 	lastline._latlngs.push([lat, lon]);
 	lastline.redraw();
 	report([lat, lon, k, 'old']);
 	return;
     }
+    
     lastline = L.polyline([[lat, lon]], {
 	color: clr[k],
 	bubblingMouseEvents: true
-    }).addTo(maplet);
+    });
+
+    lastline.addTo(maplet);
 
     maplet.setView([lat, lon], 15);
     //maplet.fitBounds(lastline.getBounds());
