@@ -70,7 +70,7 @@
 	<br/>Waypoints URL:
 	<br/>
 	<input
-	  type="text" id="waypoints" pattern=".csv$"
+	  type="text" id="waypointsurl" pattern=".csv$"
 	  placeholder="Location of the waypoints file"
 	  list="waypointsfiles"
 	  value="https://raw.githubusercontent.com/nkiesel/YRA-Marks/master/San_Francisco.csv">
@@ -78,6 +78,17 @@
 	  <option value="https://raw.githubusercontent.com/nkiesel/YRA-Marks/master/San_Francisco.csv"></option>
 	</datalist>
 	<br/><button onclick="loadwaypoints();">Load Waypoints</button>
+	<br/>GPX Track URL:
+	<br/>
+	<input
+	  type="text" id="gpxtrackurl" pattern=".gpx$"
+	  placeholder="Location of the GPX track file"
+	  list="gpxtracks"
+	  value="https://cygnyx.github.io/SailRaces/Mojo-BYC-5-240531.gpx">
+	<datalist id="gpxtrack">
+	  <option value="https://cygnyx.github.io/SailRaces/Mojo-BYC-5-240531.gpx"></option>
+	</datalist>
+	<br/><button onclick="loadgpxtrack();">Load GPX Track</button>
 	<br/>Management
 	<br/><button onclick="cacheclear();">Clear cache</button>
 	<br/>Tools

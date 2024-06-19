@@ -337,6 +337,51 @@ function loadcachedroutes(json) {
 	cachefile(v, loadcachedwaypoints);
 }
 
+function getElementValue(parent, tag) {
+    const e = parent.querySelector(tag);
+    if (!e)
+	return "";
+    if (e.innerHTML != undefined)
+	return e.innerHTML;
+    const t = e.childNodes[0].textContent;
+    if (!t)
+	return null
+    return t;
+}
+
+// https://github.com/We-Gold/gpxjs/blob/main/lib/parse.ts
+
+function loadcachedgpxtrack(gpxstring) {
+    const domParser = new window.DOMParser()
+    const gpxtrack = domParser.parseFromString(gpxstring, "text/xml")
+    const tracks = Array.from(gpxtrack.querySelectorAll("trk"))
+    path = [];
+    for (const te of tracks) {
+	const trksegs = Array.from(gpxtrack.querySelectorAll("trkseg"));
+	for (const tse of trksegs) {
+	    const trkpts = Array.from(tse.querySelectorAll("trkpt"));
+	    for (const tp of trkpts) {
+		const lat = parseFloat(tp.getAttribute("lat"));
+		const lon = parseFloat(tp.getAttribute("lon"));
+		const ele = parseFloat(getElementValue(tp, "ele"));
+		const tim = getElementValue(tp, "time");
+		const tm = (new Date(tim)).getTime();
+		path.push([lat, lon, tm, 0., 0., 0.]);
+	    }
+	}
+    }
+    for (var idx = 1; idx < path.length-1; idx++)
+	calcpath(idx);
+
+    for (var idx = 1; idx < path.length-1; idx++)
+	drawline(idx);
+
+    console.log('done drawpath');
+
+    //polygroup.redraw();
+
+}
+
 function cacheclear() {
     localStorage.clear();
 }
@@ -360,14 +405,27 @@ async function cachefile(url, procfunc, init = null) {
 function loadroutes() {
     var url = document.getElementById("routesurl").value;
     localStorage.setItem("routesurl", url);
-    cachefile(url, loadcachedroutes);
-    setconfseries();
+    return new Promise(function (resolve) {
+	cachefile(url, loadcachedroutes);
+	setconfseries();
+	return resolve();
+    });
 }
 
 function loadwaypoints() {
     var url = document.getElementById("waypointsurl").value;
     localStorage.setItem("waypointsurl", url);
     cachefile(url, loadcachedwaypoints);
+}
+
+function loadgpxtrack() {
+    var url = document.getElementById("gpxtrackurl").value;
+
+    return new Promise(function (resolve) {
+	localStorage.setItem("gpxtrackurl", url);
+	cachefile(url, loadcachedgpxtrack);
+	return resolve();
+    });
 }
 
 function setvalue(id) {
@@ -549,8 +607,11 @@ function calcpath(idx) {
 	path[idx] = [p[0], p[1], p[2], dpc * tom, k, bpn];
 }
 
+
+
 var lastline = null;
 var lastspeed = null;
+var polygroup = null;
 
 function drawline(idx) {
     var old = true;
@@ -559,41 +620,39 @@ function drawline(idx) {
     const lon = c[1];
     const dis = c[3];
     const knt = c[4];
-    const clr = ['#f60000', '#f70000', '#f80000', '#f90000', '#fa0000', '#fb0000', '#fc0000', '#fd0000', '#fe0000', '#ff0000'];
+    const clr = ['#00ff000', '#99ff00', '#eeff00', '#ffff00', '#ffbb00', '#ffee00', '#ffcc00', '#ff9900', '#ff0000'];
     const cl = clr.length;
     var k = Math.trunc(knt);
+    var pts = [[lat, lon]];
+
     if (k >= cl)
 	k = cl - 1;
     
     if ((lastline == null) || (lastspeed == null)) {
 	old = false;
-	report('no prior line ' + lastspeed);
     } else {
 	if (k != lastspeed) {
-	    report('speed change from ' + lastspeed + ' to ' + k);
 	    old = false;
 	}
     }
-    
-    if (old) {
-	lastline._latlngs.push([lat, lon]);
-	lastline.redraw();
-	report([lat, lon, k, 'old']);
-	return;
+
+    if (lastline) {
+	lastline._latlngs.push(pts[0]);
+	if (old)
+	    return;
+	//lastline.redraw();
     }
-    
-    lastline = L.polyline([[lat, lon]], {
+
+    lastline = L.polyline(pts, {
 	color: clr[k],
 	bubblingMouseEvents: true
     });
 
-    lastline.addTo(maplet);
-
+    polygroup.addLayer(lastline);
     maplet.setView([lat, lon], 15);
     //maplet.fitBounds(lastline.getBounds());
     
     lastspeed = k;
-    report([lat, lon, k, 'new']);
 }
 
 function drawnewsegment(detail) {
@@ -602,6 +661,7 @@ function drawnewsegment(detail) {
 	if (path.length > 2) {
 	    calcpath(path.length-2);
 	    drawline(path.length-2);
+	    //polygroup.redraw();
 	}
 	return resolve(detail);
     });
@@ -613,6 +673,7 @@ function onload() {
 
     maplet = L.map("map");
     maplet.setView(CENTER_LAT_LNG, 13);
+    polygroup = L.featureGroup().addTo(maplet);
 
     map.addEventListener("GEO_EVENT", updatemap);
 
