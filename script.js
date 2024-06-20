@@ -370,7 +370,7 @@ function loadaudio() {
     var a;
     for (var i in n) {
 	a = new Audio('audio/' + n[i] + '.mp3');
-	a.addEventListener('ended', audioended);
+	a.onended = audioended;
 	audios[n[i]] = a
     }
 }
