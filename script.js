@@ -355,14 +355,6 @@ function markrc() {
     playaudio('RC', 'set')
 }
 
-// https://stackoverflow.com/questions/38560764/how-to-play-many-audio-files-in-sequence
-
-// https://audiomass.co/
-
-var audiotodo = [];
-var audioplaying = null;
-//var audiowhen = null;
-
 function playbearing(f) {
     n = Math.round(f);
     playaudio('bearing');
@@ -422,47 +414,33 @@ function playint(n) {
     }
 }
 
-function audioended() {
-    var a;
-//    report('audioended:  starting with ' + audiowhen);
+// https://stackoverflow.com/questions/38560764/how-to-play-many-audio-files-in-sequence
 
-    if (audiotodo.length > 0) {
-	audioplaying = audiotodo.shift();
-//	audiowhen = new Date().getTime() + 2000;
-	//	report('audioended: playing next audio ' + audioplaying);
-//	var dt = (new Date()).getTime();
-	audioplaying.play();
-//	var e = (new Date()).getTime();
-//	console.log('milliseconds to play ' + (e - dt))
-    } else {
-//	report('audioended: no more audio');
-	audioplaying = null;
-//	audiowhen = null;
-    }
-//    report('audioended: finishing with ' + audiowhen);
-}
+// https://audiomass.co/
+
+var audiotodo = [];
 
 function playaudio() {
-    var p;
 
-//    if (audiowhen) {
-//	if ((new Date()).getTime() > audiowhen) {
-//	    audiowhen = null;
-//	    audioplaying = null;
-//	    audiotodo = [];
-//	    report("playaudio: audio timeout, resetting");
-//	}
-//    }
-
-    for (var i = 0; i < arguments.length; i++) {
-	p = arguments[i];
-	a = new Audio('audio/' + p + '.mp3');
-	a.onended = audioended;
-	audiotodo.push(a);
+    function next() {
+	var a;
+	if (audiotodo.length > 0) {
+	    if (audiotodo[0] != null) {
+		a = new Audio('audio/' + audiotodo[0] + '.mp3');
+		audiotodo[0] = null;
+		a.onended = function () {
+		    audiotodo.shift();
+		    next();
+		}
+		a.play();
+	    }
+	}
     }
 
-    if (!audioplaying)
-	audioended();
+    for (var i = 0; i < arguments.length; i++)
+	audiotodo.push(arguments[i]);
+
+    next();
 }
 
 function showcfg() {
