@@ -69,7 +69,7 @@ function racestartcountdown() {
 	if (currsec > maxsec)
 	    return;
 	if (currsec <= 0) {
-	    playaudio(['starttone']);
+	    playaudio('starttone');
 	    clearInterval(racestarttimer);
 	    racestarttimer = null;
 	    racestarttimerlast = null;
@@ -82,14 +82,12 @@ function racestartcountdown() {
 	    if (lastsec > s && currsec <= s) {
 		report('racestart in ' + s + ' seconds');
 		if (racestartword == 0) {
-		    a = ['start', 'in'];
+		    playaudio('start', 'in')
 		    racestartword = 1;
-		} else
-		    a = [];
-		a.push('' + s)
+		}
+		playaudio('' + s);
 		if (s > 10)
-		    a.push("seconds");
-		playaudio(a);
+		    playaudio("seconds");
 		break;
 	    }
 	}
@@ -130,20 +128,19 @@ function setstart(sname) {
     if (hh > 12)
 	hh -= 12;
     mm = racestart.getMinutes();
-    var a = ["start", "at", '' + hh];
+    playaudio("start", "at", ''+hh);
     if (mm > 0) {
 	if (mm < 10) {
-	    a.push('o');
-	    a.push('' + mm);
+	    playaudio('o');
+	    playaudio('' + mm);
 	} else {
 	    mm = '' + mm;
-	    a.push(mm[0] + '0');
+	    playaudio(mm[0] + '0');
 	    if (mm[1] != '0')
-		a.push(mm[1]);
+		playaudio(mm[1]);
 	}
     }
     report('racestarttime: ' + racestart);
-    playaudio(a);
     racestarttimer = setInterval(racestartcountdown, 1000);
 }
 
@@ -347,12 +344,12 @@ function setmark(name) {
 
 function markpin() {
     setmark('Pin');
-    playaudio(['pin', 'set'])
+    playaudio('pin', 'set')
 }
 
 function markrc() {
     setmark('RC');
-    playaudio(['RC', 'set'])
+    playaudio('RC', 'set')
 }
 
 var audios = {};
@@ -376,23 +373,35 @@ function loadaudio() {
 
 // https://audiomass.co/
 
-function playaudio(sounds) {
-    var i = -1;
-    
-    function ps() {
-	var a;
-	i++;
-	if (i < sounds.length) {
-	    var a = audios[sounds[i]];
-	    a.addEventListener('ended', ps);
-	    a.play();
-	}
+var audiotodo = [];
+var audioplaying = null;
+
+function audioending() {
+    if (audioplaying)
+	audioplaying.removeEventListener('ended', audioending);
+
+    audioplaying = null;
+
+    if (audiotodo.length > 0) {
+	audioplaying = audiotodo.shift();
+	audioplaying.addEventListener('ended', audioending);
+	audioplaying.play();
     }
-    
-    return new Promise(function (resolve) {
-	ps();
-	return resolve();
-    });
+}
+
+function playaudio() {
+    var p;
+
+    for (var i = 0; i < arguments.length; i++) {
+	p = audios[arguments[i]];
+	if (!p)
+	    report('missing audio for ' + arguments[i]);
+	else
+	    audiotodo.push(p);
+    }
+
+    if (!audioplaying && audiotodo.length > 0)
+	audioending();
 }
 
 function showcfg() {
