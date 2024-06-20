@@ -380,6 +380,7 @@ function loadaudio() {
 
 var audiotodo = [];
 var audioplaying = null;
+var audiowhen = null;
 
 function playbearing(f) {
     n = Math.round(f);
@@ -448,9 +449,11 @@ function audioended() {
 	a = audios[audioplaying];
 	a.addEventListener('ended', audioended);
 	a.play();
+	audiowhen = new Date().getTime();
     } else {
-	report('audioend: no more audio');
+	report('audioended: no more audio');
 	audioplaying = null;
+	audiowhen = null;
     }
 }
 
@@ -463,6 +466,14 @@ function playaudio() {
 	    audiotodo.push(p);
 	else
 	    report('missing audio for ' + arguments[i]);
+    }
+
+    if (audiowhen) {
+	if ((new Date()).getTime() > audiowhen + 2000) {
+	    audiowhen = null;
+	    audioplaying = null;
+	    report("playaudio: audio timeout, resetting");
+	}
     }
 
     if (!audioplaying)
