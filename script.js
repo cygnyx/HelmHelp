@@ -436,6 +436,7 @@ function playaudio() {
 
     function prep(s, last) {
 	a = new Audio('audio/' + s + '.mp3');
+	a.load();
 	if (last)
 	    a.onended = function () {
 		last.play();
