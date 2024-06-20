@@ -387,8 +387,10 @@ function audioended() {
 	audioplaying = audiotodo.shift();
 	report('playing next audio');
 	audioplaying.play();
-    } else
+    } else {
+	report('no more audio');
 	audioplaying = null;
+    }
 }
 
 function playaudio() {
