@@ -59,7 +59,7 @@ var racestartword = 0;
 
 function racestartcountdown() {
     const dt = new Date();
-    const secs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50, 60];
+    const secs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50, 60, 90, 120];
     const maxsec = secs[secs.length - 1];
 
     if (racestarttimerlast) {
@@ -429,32 +429,42 @@ function playint(n) {
 // https://stackoverflow.com/questions/38560764/how-to-play-many-audio-files-in-sequence
 
 // https://audiomass.co/
+var audioobject = null;
+
+function audioinit() {
+    audioobject = new Audio();
+    audioobject.srcs = [];
+    audioobject.onended = function () {
+	var s = audioobject.srcs.shift();
+	if (s !== undefined) {
+	    audioobject.src = 'audio/' + s + '.mp3';
+	    audioobject.load();
+	    audioobject.play();
+	}
+    }
+}
 
 function playaudio() {
 
-    var last = null;
+    var list = [];
+    var s;
 
-    function prep(s, last) {
-	a = new Audio('audio/' + s + '.mp3');
-	a.load();
-	if (last)
-	    a.onended = function () {
-		last.play();
-	    }
-	return a;
-    }
-
-    for (var i = arguments.length - 1; i >= 0; i--) {
+    for (var i = 0; i < arguments.length; i++) {
 	var b = arguments[i];
 	if (typeof b == 'string')
-	    last = prep(b, last);
+	    list.push(b);
 	else
-	    for (var j = b.length - 1; j>=0; j--)
-		last = prep(b[j], last);
+	    for (var j = 0; j < b.length; j++)
+		list.push(b[j]);
     }
 
-    if (last)
-	last.play();
+    if (list.length > 0) {
+	audioobject.srcs = list;
+	s = audioobject.srcs.shift();
+	audioobject.src = 'audio/' + s + '.mp3';
+	audioobject.load();
+	audioobject.play();
+    }
 }
 
 function showcfg() {
@@ -840,6 +850,7 @@ function drawnewsegment(detail) {
 }
 
 function onload() {
+    audioinit();
     map = document.getElementById("map");
     log = document.getElementById("log");
 
