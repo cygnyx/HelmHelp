@@ -444,24 +444,26 @@ function playint(n) {
 
 function audioended() {
     var a;
+    report('audioended:  starting with ' + audiowhen);
     if (audiotodo.length > 0) {
 	audioplaying = audiotodo.shift();
+	audiowhen = new Date().getTime() + 2000;
 	report('audioended: playing next audio ' + audioplaying);
 	a = audios[audioplaying];
 	a.play();
-	audiowhen = new Date().getTime();
     } else {
 	report('audioended: no more audio');
 	audioplaying = null;
 	audiowhen = null;
     }
+    report('audioended: finishing with ' + audiowhen);
 }
 
 function playaudio() {
     var p;
 
     if (audiowhen) {
-	if ((new Date()).getTime() > audiowhen + 2000) {
+	if ((new Date()).getTime() > audiowhen) {
 	    audiowhen = null;
 	    audioplaying = null;
 	    audiotodo = [];
