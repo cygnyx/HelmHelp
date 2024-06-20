@@ -355,33 +355,13 @@ function markrc() {
     playaudio('RC', 'set')
 }
 
-var audios = {};
-
-function loadaudio() {
-    const n = [
-	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-	"10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
-	"20", "30", "40", "50", "60", "70", "80", "90",
-	"knots", "minutes", "seconds", "point", "bearing", "negative",
-	"start", "at", "in",
-	"o", "RC", "pin", "set",
-	"starttone"
-    ];
-    var a;
-    for (var i in n) {
-	a = new Audio('audio/' + n[i] + '.mp3');
-	a.onended = audioended;
-	audios[n[i]] = a
-    }
-}
-
 // https://stackoverflow.com/questions/38560764/how-to-play-many-audio-files-in-sequence
 
 // https://audiomass.co/
 
 var audiotodo = [];
 var audioplaying = null;
-var audiowhen = null;
+//var audiowhen = null;
 
 function playbearing(f) {
     n = Math.round(f);
@@ -444,39 +424,41 @@ function playint(n) {
 
 function audioended() {
     var a;
-    report('audioended:  starting with ' + audiowhen);
+//    report('audioended:  starting with ' + audiowhen);
+
     if (audiotodo.length > 0) {
 	audioplaying = audiotodo.shift();
-	audiowhen = new Date().getTime() + 2000;
-	report('audioended: playing next audio ' + audioplaying);
-	a = audios[audioplaying];
-	a.play();
+//	audiowhen = new Date().getTime() + 2000;
+	//	report('audioended: playing next audio ' + audioplaying);
+//	var dt = (new Date()).getTime();
+	audioplaying.play();
+//	var e = (new Date()).getTime();
+//	console.log('milliseconds to play ' + (e - dt))
     } else {
-	report('audioended: no more audio');
+//	report('audioended: no more audio');
 	audioplaying = null;
-	audiowhen = null;
+//	audiowhen = null;
     }
-    report('audioended: finishing with ' + audiowhen);
+//    report('audioended: finishing with ' + audiowhen);
 }
 
 function playaudio() {
     var p;
 
-    if (audiowhen) {
-	if ((new Date()).getTime() > audiowhen) {
-	    audiowhen = null;
-	    audioplaying = null;
-	    audiotodo = [];
-	    report("playaudio: audio timeout, resetting");
-	}
-    }
+//    if (audiowhen) {
+//	if ((new Date()).getTime() > audiowhen) {
+//	    audiowhen = null;
+//	    audioplaying = null;
+//	    audiotodo = [];
+//	    report("playaudio: audio timeout, resetting");
+//	}
+//    }
 
     for (var i = 0; i < arguments.length; i++) {
 	p = arguments[i];
-	if (p in audios)
-	    audiotodo.push(p);
-	else
-	    report('missing audio for ' + arguments[i]);
+	a = new Audio('audio/' + p + '.mp3');
+	a.onended = audioended;
+	audiotodo.push(a);
     }
 
     if (!audioplaying)
@@ -866,7 +848,6 @@ function drawnewsegment(detail) {
 }
 
 function onload() {
-    loadaudio();
     map = document.getElementById("map");
     log = document.getElementById("log");
 
