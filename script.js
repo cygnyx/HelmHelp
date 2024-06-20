@@ -76,18 +76,20 @@ function racestartcountdown() {
 	    racestartword = 0;
 	    return;
 	}
-	var a;
+	var a = [];
 	for (var i in secs) {
 	    var s = secs[i];
 	    if (lastsec > s && currsec <= s) {
 		report('racestart in ' + s + ' seconds');
 		if (racestartword == 0) {
-		    playaudio('start', 'in')
+		    a.push('start');
+		    a.push('in');
 		    racestartword = 1;
 		}
-		playaudio('' + s);
+		a.push('' + s);
 		if (s > 10)
-		    playaudio("seconds");
+		    a.push("seconds");
+		playaudio(a);
 		break;
 	    }
 	}
@@ -128,22 +130,23 @@ function setstart(sname) {
     if (hh > 12)
 	hh -= 12;
     mm = racestart.getMinutes();
-    playaudio("start", "at");
-    playint(hh);
+    var a = ["start", "at"];
+    a.push(playint(hh));
     if (mm > 0) {
 	if (mm < 10) {
-	    playaudio('o');
-	    playaudio('' + mm);
+	    a.push('o');
+	    a.push('' + mm);
 	} else if (mm < 20) {
-	    playaudio('' + mm);
+	    a.push('' + mm);
 	} else {
 	    mm = '' + mm;
-	    playaudio(mm[0] + '0');
+	    a.push(mm[0] + '0');
 	    if (mm[1] != '0')
-		playaudio(mm[1]);
+		a.push(mm[1]);
 	}
     }
     report('racestarttime: ' + racestart);
+    playaudio(a);
     racestarttimer = setInterval(racestartcountdown, 1000);
 }
 
@@ -357,43 +360,48 @@ function markrc() {
 
 function playbearing(f) {
     n = Math.round(f);
-    playaudio('bearing');
-    playint(n);
+    var a = playaudio('bearing');
+    a.push(playint(n));
+    return a;
 }
 
 function playspeed(f) {
-    playfloat(f);
-    playaudio('knots');
+    var a = playfloat(f);
+    a.push('knots');
+    return a;
 }
 
 function playfloat(f) {
+    var a = [];
     if (f < 0) {
-	playaudio('negative');
+	a.push('negative');
 	f = -f;
     }
     n = Math.trunc(f);
-    playint(n);
+    a.push(playint(n));
     f -= n;
     f *= 10;
     n = Math.round(f);
     if (n > 0) {
-	playaudio('point');
-	playint(n);
+	a.push('point');
+	a.push(playint(n));
     }
+    return a;
 }
 
 function playint(n) {
     var s;
     var b = false;
-
+    var a = [];
+    
     if (n < 0) {
-	playaudio("negative");
+	a.push("negative");
 	n = -n;
     }
 
     s = '' + n;
     while (s.length > 2) {
-	playaudio(s[0]);
+	a.push(s[0]);
 	s = s.substr(1);
 	b = true;
     }
@@ -401,46 +409,51 @@ function playint(n) {
     n = n % 100;
     r = n % 10;
     if (n == 0) {
-	if (b)
-	    playaudio('o', 'o');
-	else
-	    playaudio('0');
+	if (b) {
+	    a.push('o');
+	    a.push('o');
+	} else
+	    a.push('0');
     } else if (n < 10 && b) {
-	playaudio('o', s[1]);
+	a.push('o');
+	a.push(s[1]);
     } else if (n <= 20 || r == 0)
-	playaudio('' + n);
+	a.push('' + n);
     else {
-	playaudio(s[0]+'0', s[1]);
+	a.push(s[0]+'0');
+	a.push(s[1]);
     }
+    return a;
 }
 
 // https://stackoverflow.com/questions/38560764/how-to-play-many-audio-files-in-sequence
 
 // https://audiomass.co/
 
-var audiotodo = [];
-
 function playaudio() {
 
-    function next() {
-	var a;
-	if (audiotodo.length > 0) {
-	    if (audiotodo[0] != null) {
-		a = new Audio('audio/' + audiotodo[0] + '.mp3');
-		audiotodo[0] = null;
-		a.onended = function () {
-		    audiotodo.shift();
-		    next();
-		}
-		a.play();
+    var last = null;
+
+    function prep(s, last) {
+	a = new Audio('audio/' + s + '.mp3');
+	if (last)
+	    a.onended = function () {
+		last.play();
 	    }
-	}
+	return a;
     }
 
-    for (var i = 0; i < arguments.length; i++)
-	audiotodo.push(arguments[i]);
+    for (var i = arguments.length - 1; i >= 0; i--) {
+	var b = arguments[i];
+	if (typeof b == 'string')
+	    last = prep(b, last);
+	else
+	    for (var j = b.length - 1; j>=0; j--)
+		last = prep(b[j], last);
+    }
 
-    next();
+    if (last)
+	last.play();
 }
 
 function showcfg() {
