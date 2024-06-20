@@ -52,9 +52,58 @@ const trackOptions = {
   timeout: MAX_NEW_POSITION_MILLISECOND
 };
 
+var racestart = null;
+var racestarttimer = null;
+var racestarttimerlast = null;
+var racestartword = 0;
+
+function racestartcountdown() {
+    const dt = new Date();
+    const secs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50, 60];
+    const maxsec = secs[secs.length - 1];
+
+    if (racestarttimerlast) {
+	const racetim = racestart.getTime();
+	const lastsec = Math.trunc((racetim - racestarttimerlast.getTime())/1000);
+	const currsec = Math.trunc((racetim - dt.getTime())/1000);
+	if (currsec > maxsec)
+	    return;
+	if (currsec <= 0) {
+	    playaudio(['starttone']);
+	    clearInterval(racestarttimer);
+	    racestarttimer = null;
+	    racestarttimerlast = null;
+	    racestartword = 0;
+	    return;
+	}
+	var a;
+	for (var i in secs) {
+	    var s = secs[i];
+	    if (lastsec > s && currsec <= s) {
+		report('racestart in ' + s + ' seconds');
+		if (racestartword == 0) {
+		    a = ['start', 'in'];
+		    racestartword = 1;
+		} else
+		    a = [];
+		a.push('' + s)
+		if (s > 10)
+		    a.push("seconds");
+		playaudio(a);
+		break;
+	    }
+	}
+    }
+    racestarttimerlast = dt;
+}
+
 function setstart(sname) {
     var dt = new Date();
     var gt = dt.getTime();
+    var hh;
+    var mm;
+    var mmc;
+    var t;
 
     if (sname == 'Not Set') {racestart = null; return; }
 
@@ -77,6 +126,25 @@ function setstart(sname) {
 	break;
     }
     racestart = new Date(t);
+    hh = racestart.getHours();
+    if (hh > 12)
+	hh -= 12;
+    mm = racestart.getMinutes();
+    var a = ["start", "at", '' + hh];
+    if (mm > 0) {
+	if (mm < 10) {
+	    a.push('o');
+	    a.push('' + mm);
+	} else {
+	    mm = '' + mm;
+	    a.push(mm[0] + '0');
+	    if (mm[1] != '0')
+		a.push(mm[1]);
+	}
+    }
+    report('racestarttime: ' + racestart);
+    playaudio(a);
+    racestarttimer = setInterval(racestartcountdown, 1000);
 }
 
 function setwidth(id, width) {
@@ -271,16 +339,60 @@ function toggletracking () {
     }
 }
 
+var marks = {};
+
 function setmark(name) {
-    marks[name] = c;
+    marks[name] = lastcoords;
 }
 
 function markpin() {
     setmark('Pin');
+    playaudio(['pin', 'set'])
 }
 
 function markrc() {
     setmark('RC');
+    playaudio(['RC', 'set'])
+}
+
+var audios = {};
+
+function loadaudio() {
+    const n = [
+	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+	"10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
+	"20", "30", "40", "50", "60", "70", "80", "90",
+	"knots", "minutes", "seconds",
+	"start", "at", "in",
+	"o", "RC", "pin", "set",
+	"starttone"
+    ];
+    for (var i in n) {
+	audios[n[i]] = new Audio('audio/' + n[i] + '.mp3');
+    }
+}
+
+// https://stackoverflow.com/questions/38560764/how-to-play-many-audio-files-in-sequence
+
+// https://audiomass.co/
+
+function playaudio(sounds) {
+    var i = -1;
+    
+    function ps() {
+	var a;
+	i++;
+	if (i < sounds.length) {
+	    var a = audios[sounds[i]];
+	    a.addEventListener('ended', ps);
+	    a.play();
+	}
+    }
+    
+    return new Promise(function (resolve) {
+	ps();
+	return resolve();
+    });
 }
 
 function showcfg() {
@@ -375,8 +487,6 @@ function loadcachedgpxtrack(gpxstring) {
 
     for (var idx = 1; idx < path.length-1; idx++)
 	drawline(idx);
-
-    console.log('done drawpath');
 
     //polygroup.redraw();
 
@@ -668,6 +778,7 @@ function drawnewsegment(detail) {
 }
 
 function onload() {
+    loadaudio();
     map = document.getElementById("map");
     log = document.getElementById("log");
 
