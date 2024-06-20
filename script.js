@@ -382,8 +382,10 @@ var audiotodo = [];
 var audioplaying = null;
 
 function audioended() {
+    report('audio ended');
     if (audiotodo.length > 0) {
 	audioplaying = audiotodo.shift();
+	report('playing next audio');
 	audioplaying.play();
     } else
 	audioplaying = null;
