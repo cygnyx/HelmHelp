@@ -447,7 +447,7 @@ function audioinit() {
 function playaudio() {
 
     var list = [];
-    var s;
+    var s; 
 
     for (var i = 0; i < arguments.length; i++) {
 	var b = arguments[i];
