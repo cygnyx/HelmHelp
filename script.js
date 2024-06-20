@@ -128,7 +128,8 @@ function setstart(sname) {
     if (hh > 12)
 	hh -= 12;
     mm = racestart.getMinutes();
-    playaudio("start", "at", ''+hh);
+    playaudio("start", "at");
+    playint(hh);
     if (mm > 0) {
 	if (mm < 10) {
 	    playaudio('o');
@@ -361,7 +362,7 @@ function loadaudio() {
 	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
 	"10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
 	"20", "30", "40", "50", "60", "70", "80", "90",
-	"knots", "minutes", "seconds",
+	"knots", "minutes", "seconds", "point", "bearing", "negative",
 	"start", "at", "in",
 	"o", "RC", "pin", "set",
 	"starttone"
@@ -379,6 +380,65 @@ function loadaudio() {
 
 var audiotodo = [];
 var audioplaying = null;
+
+function playbearing(f) {
+    n = Math.round(f);
+    playaudio('bearing');
+    playint(n);
+}
+
+function playspeed(f) {
+    playfloat(f);
+    playaudio('knots');
+}
+
+function playfloat(f) {
+    if (f < 0) {
+	playaudio('negative');
+	f = -f;
+    }
+    n = Math.trunc(f);
+    playint(n);
+    f -= n;
+    f *= 10;
+    n = Math.round(f);
+    if (n > 0) {
+	playaudio('point');
+	playint(n);
+    }
+}
+
+function playint(n) {
+    var s;
+    var b = false;
+
+    if (n < 0) {
+	playaudio("negative");
+	n = -n;
+    }
+
+    s = '' + n;
+    while (s.length > 2) {
+	playaudio(s[0]);
+	s = s.substr(1);
+	b = true;
+    }
+
+    n = n % 100;
+    r = n % 10;
+    if (n == 0) {
+	if (b)
+	    playaudio('o', 'o');
+	else
+	    playaudio('0');
+    } else if (n < 10 && b) {
+	playaudio('o', s[1]);
+    } else if (n <= 20 || r == 0)
+	playaudio('' + n);
+    else {
+	playaudio(s[0]+'0', s[1]);
+    }
+}
 
 function audioended() {
     var a;
