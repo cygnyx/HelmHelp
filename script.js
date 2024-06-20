@@ -133,6 +133,8 @@ function setstart(sname) {
 	if (mm < 10) {
 	    playaudio('o');
 	    playaudio('' + mm);
+	} else if (mm < 20) {
+	    playaudio('' + mm);
 	} else {
 	    mm = '' + mm;
 	    playaudio(mm[0] + '0');
@@ -364,8 +366,11 @@ function loadaudio() {
 	"o", "RC", "pin", "set",
 	"starttone"
     ];
+    var a;
     for (var i in n) {
-	audios[n[i]] = new Audio('audio/' + n[i] + '.mp3');
+	a = new Audio('audio/' + n[i] + '.mp3');
+	audios[n[i]] = a
+	a.addEventListener('ended', audioended);
     }
 }
 
@@ -376,17 +381,12 @@ function loadaudio() {
 var audiotodo = [];
 var audioplaying = null;
 
-function audioending() {
-    if (audioplaying)
-	audioplaying.removeEventListener('ended', audioending);
-
-    audioplaying = null;
-
+function audioended() {
     if (audiotodo.length > 0) {
 	audioplaying = audiotodo.shift();
-	audioplaying.addEventListener('ended', audioending);
 	audioplaying.play();
-    }
+    } else
+	audioplaying = null;
 }
 
 function playaudio() {
@@ -400,8 +400,8 @@ function playaudio() {
 	    audiotodo.push(p);
     }
 
-    if (!audioplaying && audiotodo.length > 0)
-	audioending();
+    if (!audioplaying)
+	audioended();
 }
 
 function showcfg() {
