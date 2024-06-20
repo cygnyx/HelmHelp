@@ -370,7 +370,6 @@ function loadaudio() {
     for (var i in n) {
 	a = new Audio('audio/' + n[i] + '.mp3');
 	audios[n[i]] = a
-	a.addEventListener('ended', audioended);
     }
 }
 
@@ -382,13 +381,15 @@ var audiotodo = [];
 var audioplaying = null;
 
 function audioended() {
-    report('audio ended');
+    var a;
     if (audiotodo.length > 0) {
 	audioplaying = audiotodo.shift();
-	report('playing next audio');
-	audioplaying.play();
+	report('audioended: playing next audio ' + audioplaying);
+	a = audios[audioplaying];
+	a.addEventListener('ended', audioended);
+	a.play();
     } else {
-	report('no more audio');
+	report('audioend: no more audio');
 	audioplaying = null;
     }
 }
@@ -397,11 +398,11 @@ function playaudio() {
     var p;
 
     for (var i = 0; i < arguments.length; i++) {
-	p = audios[arguments[i]];
-	if (!p)
-	    report('missing audio for ' + arguments[i]);
-	else
+	p = arguments[i];
+	if (p in audios)
 	    audiotodo.push(p);
+	else
+	    report('missing audio for ' + arguments[i]);
     }
 
     if (!audioplaying)
