@@ -497,7 +497,7 @@ function sharegpx() {
 	navigator.share({
 	    title: "HelmHelp" + (new Date()).toISOString() + ".gpx",
 	    text: "Helm Help Track",
-	    url: 'data:application/octet-stream,<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><gpx></gpx>'
+	    url: 'data:text/plain,thisisatest'
 // gpxdatafile()
 	}).then(function () {
 	    report('exported successfully');
