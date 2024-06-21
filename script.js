@@ -523,7 +523,7 @@ function gpxdatafile() {
     l.push('<trkseg>');
     for (const e of path) {
 	var ct = new Date(e[timcol]);
-	//l.push('<trkpt lat="' + e[latcol] + '" lon="' + e[loncol] + '"><time>"' + ct.toISOString() + '"</time></trkpt>');
+	l.push('<trkpt lat="' + e[latcol] + '" lon="' + e[loncol] + '"><time>"' + ct.toISOString() + '"</time></trkpt>');
     }
     l.push('</trkseg></trk></gpx>');
 
