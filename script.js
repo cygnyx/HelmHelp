@@ -494,7 +494,7 @@ function sharegpx() {
     if ('share' in navigator) {
 	report('sharing gpx file with ' + path.length + ' track points.')
 	navigator.share({
-	    title: "HelmHelp" + (new Date()).toISOString() + ".gpx";
+	    title: "HelmHelp" + (new Date()).toISOString() + ".gpx",
 	    url: gpxdatafile()
 	}).then(function () {
 	    report('exported successfully');
