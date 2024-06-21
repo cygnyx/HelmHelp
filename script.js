@@ -971,9 +971,9 @@ function onload() {
 
 	    button = L.DomUtil.create('a', 'leaflet-control-button', container);
 	    L.DomEvent.disableClickPropagation(button);
-	    L.DomEvent.on(button, 'click', sharegpx);
+	    //L.DomEvent.on(button, 'click', sharegpx);
 	    L.DomUtil.create('i', "fa fa-road", button);
-	    if (!('share' in navigator))
+	    //if (!('share' in navigator))
    	        gpxexportbutton = button;
 
 	    // play stop map-pin ship
