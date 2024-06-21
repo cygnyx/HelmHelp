@@ -491,8 +491,10 @@ function showcfg() {
 
 function sharegpx() {
     var p = null;
-    if ('share' in navigator)
+    if ('share' in navigator) {
+	report('sharing gpx file with ' + path.length + ' track points.')
 	p = navigator.share(gpxdatafile());
+    }
     return p;
 }
 
