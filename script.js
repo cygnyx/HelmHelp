@@ -330,6 +330,8 @@ function showlog () {
     hide("log", false);
 }
 
+var gpxexportbutton = null;
+
 function stoptracking () {
     var e = controls._container.firstChild.firstChild;
     L.DomUtil.removeClass(e, 'fa-stop');
@@ -337,6 +339,10 @@ function stoptracking () {
     if (tracker) {
 	navigator.geolocation.clearWatch(tracker);
 	tracker = null;
+	if (gpxexportbutton) {
+	    gpxexportbutton.href = gpxdatafile();
+	    gpxexportbutton.download = "HelmHelp" + (new Date()).toISOString() + ".gpx";
+	}
     }
 }
 
@@ -484,29 +490,20 @@ function showcfg() {
 }
 
 function sharegpx() {
-    var d = gpxdatafile();
-    if (!d)
-	return null;
-
-    return navigator.share(d);
+    var p = null;
+    if ('share' in navigator)
+	p = navigator.share(gpxdatafile());
+    return p;
 }
 
 function gpxdatafile() {
-    if (path.length == 0)
-	return null;
-
     const latcol = 0;
     const loncol = 1;
     const timcol = 2;
 
-    var st = path[0][timcol];
-    var sd = new Date(st);
-
-    console.log(sd);
-    
     var l = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'];
     l.push('<gpx version="1.1" creator="HelmHelp - https://cygnyx.github.io/HelmHelp/" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">');
-    l.push('<trk><name>Helm Help Track ' + sd.toISOString() + '</name>');
+    l.push('<trk><name>Helm Help Track ' + (new Date()).toISOString() + '</name>');
     l.push('<trkseg>');
     for (const e of path) {
 	var ct = new Date(e[timcol]);
@@ -970,12 +967,12 @@ function onload() {
             L.DomEvent.on(button, 'click', showcfg);
 	    L.DomUtil.create('i', "fa fa-gear", button);
 
-	    if ('share' in navigator) {
-		button = L.DomUtil.create('a', 'leaflet-control-button', container);
-		L.DomEvent.disableClickPropagation(button);
-		L.DomEvent.on(button, 'click', sharegpx);
-		L.DomUtil.create('i', "fa fa-road", button);
-	    }
+	    button = L.DomUtil.create('a', 'leaflet-control-button', container);
+	    L.DomEvent.disableClickPropagation(button);
+	    L.DomEvent.on(button, 'click', sharegpx);
+	    L.DomUtil.create('i', "fa fa-road", button);
+	    if (!('share' in navigator))
+   	        gpxexportbutton = button;
 
 	    // play stop map-pin ship
 	    // bars flag anchor filter list tag info leaf wrench repeat road crosshairs
