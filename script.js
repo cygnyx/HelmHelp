@@ -492,11 +492,13 @@ function showcfg() {
 function sharegpx() {
     var p = null;
     if ('share' in navigator) {
-	report('sharing gpx file with ' + path.length + ' track points.')
+	report('sharing gpx file with ' + path.length + ' track points.');
+	report(gpxdatafile());
 	navigator.share({
 	    title: "HelmHelp" + (new Date()).toISOString() + ".gpx",
 	    text: "Helm Help Track",
-	    url: "https://cygnyx.github.io/HelmHelp/" //gpxdatafile()
+	    url: 'data:application/gpx+xml,<?xml version="1.0" encoding="UTF-8" standalone="yes"?><gpx version="1.1" creator="iSailGPS - http://www.isailgps.com" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd"><trk><name>iSailGPS Track 2024-06-02</name><trkseg><trkpt lat="37.819694" lon="-122.433524"><ele>4.183957</ele><time>2024-06-02T18:33:18.005Z</time></trkpt></trkseg></trk></gpx>'
+// gpxdatafile() // "https://cygnyx.github.io/HelmHelp/"
 	}).then(function () {
 	    report('exported successfully');
 	}).catch(function (err) {
@@ -517,7 +519,7 @@ function gpxdatafile() {
     l.push('<trkseg>');
     for (const e of path) {
 	var ct = new Date(e[timcol]);
-	l.push('<trkpt lat="' + e[latcol] + '" lon="' + e[loncol] + '"><time>"' + ct.toISOString() + '"</time></trkpt>');
+	//l.push('<trkpt lat="' + e[latcol] + '" lon="' + e[loncol] + '"><time>"' + ct.toISOString() + '"</time></trkpt>');
     }
     l.push('</trkseg></trk></gpx>');
 
