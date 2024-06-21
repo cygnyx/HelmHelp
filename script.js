@@ -491,13 +491,16 @@ function showcfg() {
 
 function sharegpx() {
     var p = null;
+    var data = "thisisatest";
+    var blob = new Blob([data], {type: "text/plain"});
+    var file = new File([blob], "HelmHelp", {type: "text/plain"});
     if ('share' in navigator) {
 	report('sharing gpx file with ' + path.length + ' track points.');
 	report(gpxdatafile());
 	navigator.share({
 	    title: "HelmHelp" + (new Date()).toISOString() + ".gpx",
 	    text: "Helm Help Track",
-	    url: 'data:text/plain,thisisatest'
+	    files: [file]
 // gpxdatafile()
 	}).then(function () {
 	    report('exported successfully');
