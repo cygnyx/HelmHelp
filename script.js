@@ -491,17 +491,18 @@ function showcfg() {
 
 function sharegpx() {
     var p = null;
-    var data = "thisisatest";
-    var blob = new Blob([data], {type: "text/plain"});
-    var file = new File([blob], "HelmHelp", {type: "text/plain"});
+    const mt = {type: "application/gpx+xml"};
+    var data = gpxdatafile();
+    var blob = new Blob([data], mt);
+    var fn = "HelmHelp.gpx";
+    var file = new File([blob], fn, mt);
     if ('share' in navigator) {
 	report('sharing gpx file with ' + path.length + ' track points.');
-	report(gpxdatafile());
+	report(data);
 	navigator.share({
-	    title: "HelmHelp" + (new Date()).toISOString() + ".gpx",
+	    title: fn,
 	    text: "Helm Help Track",
 	    files: [file]
-// gpxdatafile()
 	}).then(function () {
 	    report('exported successfully');
 	}).catch(function (err) {
@@ -526,7 +527,7 @@ function gpxdatafile() {
     }
     l.push('</trkseg></trk></gpx>');
 
-    return 'data:application/gpx+xml,' + l.join('');
+    return l.join('');
 }
 
 function setseries(sname) {
