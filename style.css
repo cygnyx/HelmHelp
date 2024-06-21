@@ -19,7 +19,6 @@ html, body, #map {
   width: 100px;
   font-size: 90px;
   vertical-align: middle;
-  justify-content: center;
 }
 
 a i.fa {

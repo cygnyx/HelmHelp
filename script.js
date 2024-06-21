@@ -483,6 +483,32 @@ function showcfg() {
     hide("cfg", false);
 }
 
+function sharegpx() {
+    if (path.length == 0)
+	return;
+    if (!('share' in nagivator)) {
+	report('sharing not available');
+	return;
+    }
+
+    var st = path[0][3];
+    var sd = new Date(st);
+
+    console.log(sd);
+    
+    var l = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'];
+    l.push('<gpx version="1.1" creator="HelmHelp - https://cygnyx.github.io/HelmHelp/" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">');
+    l.push('<trk><name>Helm Help Track ' + sd + '</name>');
+    l.push('<trkseg>');
+    for (const e of path) {
+	var ct = new Date(e[2]);
+	l.push('<trkpt lat="' + e[0] + '" lon="' + e[1] + '"><time>"' + ct + '"</time></trkpt>');
+    }
+    l.push('</trkseg></trk></gpx>');
+
+    return navigator.share('data:application/gpx+xml,' + ''.join(l));
+}
+
 function setseries(sname) {
     if (sname == 'Not Set') {
 	raceseries = null;
@@ -935,6 +961,13 @@ function onload() {
             L.DomEvent.disableClickPropagation(button);
             L.DomEvent.on(button, 'click', showcfg);
 	    L.DomUtil.create('i', "fa fa-gear", button);
+
+	    if ('share' in navigator) {
+		button = L.DomUtil.create('a', 'leaflet-control-button', container);
+		L.DomEvent.disableClickPropagation(button);
+		L.DomEvent.on(button, 'click', sharegpx);
+		L.DomUtil.create('i', "fa fa-road", button);
+	    }
 
 	    // play stop map-pin ship
 	    // bars flag anchor filter list tag info leaf wrench repeat road crosshairs
