@@ -13,6 +13,7 @@ var mapcenter = null;
 
 var controls = null;
 var msg = null;
+var popbox = null;
 var tracker = null;
 
 const CENTER_LAT_LNG = [37.866473, -122.317745];
@@ -66,9 +67,14 @@ function racestartcountdown() {
 	const racetim = racestart.getTime();
 	const lastsec = Math.trunc((racetim - racestarttimerlast.getTime())/1000);
 	const currsec = Math.trunc((racetim - dt.getTime())/1000);
+	if (currsec < 120) {
+	    showpopbox(false);
+	    popbox.innerText = '' + currsec;
+	}
 	if (currsec > maxsec)
 	    return;
 	if (currsec <= 0) {
+	    showpopbox(true);
 	    playaudio('starttone');
 	    clearInterval(racestarttimer);
 	    racestarttimer = null;
@@ -165,6 +171,10 @@ function hide(id, p) {
 	    L.DomUtil.removeClass(e, 'hide');
 	}
     }
+}
+
+function showpopbox(hidep) {
+    hide("popbox", hidep);
 }
 
 function closeoverlay () {
@@ -432,16 +442,20 @@ function playint(n) {
 var audioobject = null;
 
 function audioinit() {
+    // audio object must be re-used or it won't play on iOS.
+    // might be possible to create a large set of audio objects initial.
+    // one object works, but is slow.
+    // difficult to combine mp3 files.
     audioobject = new Audio();
+    audioobject.onended = audionext;
+    audioobject.autoplay = true;
     audioobject.srcs = [];
-    audioobject.onended = function () {
-	var s = audioobject.srcs.shift();
-	if (s !== undefined) {
-	    audioobject.src = 'audio/' + s + '.mp3';
-	    audioobject.load();
-	    audioobject.play();
-	}
-    }
+}
+
+function audionext() {
+    var s = audioobject.srcs.shift();
+    if (s !== undefined)
+	audioobject.src = 'audio/' + s + '.mp3';
 }
 
 function playaudio() {
@@ -460,10 +474,7 @@ function playaudio() {
 
     if (list.length > 0) {
 	audioobject.srcs = list;
-	s = audioobject.srcs.shift();
-	audioobject.src = 'audio/' + s + '.mp3';
-	audioobject.load();
-	audioobject.play();
+	audionext();
     }
 }
 
@@ -865,6 +876,19 @@ function onload() {
 	attribution: MAPTILE_CR
     }).addTo(maplet);
 
+
+    L.Control.Textbox = L.Control.extend({
+	options: { position: 'topright' },
+	onAdd: function (map) {
+	    var container = L.DomUtil.create('div');
+	    container.id = 'popbox';
+	    return container;
+	},
+	onRemove: function(map) {}
+    })
+    var popmsg = new L.Control.Textbox();
+    popmsg.addTo(maplet);
+    popbox = document.getElementById("popbox");
 
     L.Control.Textbox = L.Control.extend({
 	options: { position: 'bottomleft' },
