@@ -501,7 +501,7 @@ function sharegpx() {
 	report(data);
 	navigator.share({
 	    title: fn,
-	    text: "Helm Help Track",
+	    text: "Helm Help Track 1",
 	    files: [file]
 	}).then(function () {
 	    report('exported successfully');
