@@ -484,29 +484,37 @@ function showcfg() {
 }
 
 function sharegpx() {
-    if (path.length == 0)
-	return;
-    if (!('share' in nagivator)) {
-	report('sharing not available');
-	return;
-    }
+    var d = gpxdatafile();
+    if (!d)
+	return null;
 
-    var st = path[0][3];
+    return navigator.share(d);
+}
+
+function gpxdatafile() {
+    if (path.length == 0)
+	return null;
+
+    const latcol = 0;
+    const loncol = 1;
+    const timcol = 2;
+
+    var st = path[0][timcol];
     var sd = new Date(st);
 
     console.log(sd);
     
     var l = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'];
     l.push('<gpx version="1.1" creator="HelmHelp - https://cygnyx.github.io/HelmHelp/" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">');
-    l.push('<trk><name>Helm Help Track ' + sd + '</name>');
+    l.push('<trk><name>Helm Help Track ' + sd.toISOString() + '</name>');
     l.push('<trkseg>');
     for (const e of path) {
-	var ct = new Date(e[2]);
-	l.push('<trkpt lat="' + e[0] + '" lon="' + e[1] + '"><time>"' + ct + '"</time></trkpt>');
+	var ct = new Date(e[timcol]);
+	l.push('<trkpt lat="' + e[latcol] + '" lon="' + e[loncol] + '"><time>"' + ct.toISOString() + '"</time></trkpt>');
     }
     l.push('</trkseg></trk></gpx>');
 
-    return navigator.share('data:application/gpx+xml,' + ''.join(l));
+    return 'data:application/gpx+xml,' + l.join('');
 }
 
 function setseries(sname) {
