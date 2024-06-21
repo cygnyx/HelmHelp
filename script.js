@@ -494,7 +494,7 @@ function sharegpx() {
     const mt = {type: "application/gpx+xml"};
     var data = gpxdatafile();
     var blob = new Blob([data], mt);
-    var fn = "HelmHelp.gpx";
+    var fn = "HelmHelp1.gpx";
     var file = new File([blob], fn, mt);
     if ('share' in navigator) {
 	report('sharing gpx file with ' + path.length + ' track points.');
