@@ -1,3 +1,4 @@
+// Helm Help
 var map = null;
 var log = null;
 
@@ -24,8 +25,6 @@ const MAX_CACHE_AGE_MILLISECOND = 20*MAX_NEW_POSITION_MILLISECOND;
 
 const MAPTILE_SERVER = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const MAPTILE_CR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-//const MAPTILE_SERVER = 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png';
-//const MAPTILE_CR = '&copy; <a href="https://map.openseamap.org/legend.php?lang=en&page=license">OpenSeaMap</a>'
 
 const starttimes = [
     "Now",
@@ -443,45 +442,72 @@ function playint(n) {
 }
 
 // https://stackoverflow.com/questions/38560764/how-to-play-many-audio-files-in-sequence
-
 // https://audiomass.co/
-var audioobject = null;
+
+
+var audiodict = null;
 
 function audioinit() {
-    // audio object must be re-used or it won't play on iOS.
-    // might be possible to create a large set of audio objects initial.
-    // one object works, but is slow.
-    // difficult to combine mp3 files.
-    audioobject = new Audio();
-    audioobject.onended = audionext;
-    audioobject.autoplay = true;
-    audioobject.srcs = [];
+
+    if (audiodict) return;
+    
+    const clips = [
+	"negative", "bearing", "point", "starttone",
+	"pin", "RC", "set",
+	"start", "in", "at",
+	"seconds", "minutes", "knots",
+	"90", "80", "70", "60", "50", "40", "30", "20",
+	"19", "18", "17", "16", "15", "14", "13", "12", "11",
+	"10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "0", "o"
+    ];
+
+    var a;
+    console.log('process audio - start ' + (new Date()));
+
+    // sound to zero
+    // pause instead of play?
+
+    audiodict = {};
+    for (const clip of clips) {
+	a = new Audio();
+	a.src = 'audio/' + clip + '.mp3';
+	a.onended = audionext;
+	a.autoplay = true;
+	a.play();
+	audiodict[clip] = a
+    }
+
+    console.log('process audio - finish ' + (new Date()));
 }
 
+var audioqueue = [];
+
 function audionext() {
-    var s = audioobject.srcs.shift();
-    if (s !== undefined)
-	audioobject.src = 'audio/' + s + '.mp3';
+    var s = audioqueue.shift();
+    if (s === undefined)
+	return;
+    var a = audiodict[s];
+    a.play();
 }
 
 function playaudio() {
-
+    audioinit();
     var list = [];
-    var s; 
+    var i, j, b; 
 
-    for (var i = 0; i < arguments.length; i++) {
-	var b = arguments[i];
+    for (i = 0; i < arguments.length; i++) {
+	b = arguments[i];
 	if (typeof b == 'string')
 	    list.push(b);
 	else
-	    for (var j = 0; j < b.length; j++)
+	    for (j = 0; j < b.length; j++)
 		list.push(b[j]);
     }
 
-    if (list.length > 0) {
-	audioobject.srcs = list;
-	audionext();
-    }
+    for (const e of list)
+	audioqueue.push(e);
+
+    audionext();
 }
 
 function showcfg() {
@@ -908,7 +934,6 @@ function drawnewsegment(detail) {
 }
 
 function onload() {
-    audioinit();
     map = document.getElementById("map");
     log = document.getElementById("log");
 
@@ -961,32 +986,32 @@ function onload() {
             button = L.DomUtil.create('a', 'leaflet-control-button', container);
             L.DomEvent.disableClickPropagation(button);
             L.DomEvent.on(button, 'click', toggletracking);
-	    L.DomUtil.create('i', 'fa fa-play', button);
+	    L.DomUtil.create('i', 'fa-play', button);
 
             button = L.DomUtil.create('a', 'leaflet-control-button', container);
             L.DomEvent.disableClickPropagation(button);
             L.DomEvent.on(button, 'click', showlog);
-	    L.DomUtil.create('i', "fa fa-bars", button);
+	    L.DomUtil.create('i', "fa-bars", button);
 
             button = L.DomUtil.create('a', 'leaflet-control-button', container);
             L.DomEvent.disableClickPropagation(button);
             L.DomEvent.on(button, 'click', markrc);
-	    L.DomUtil.create('i', "fa fa-ship", button);
+	    L.DomUtil.create('i', "fa-ship", button);
 
             button = L.DomUtil.create('a', 'leaflet-control-button', container);
             L.DomEvent.disableClickPropagation(button);
             L.DomEvent.on(button, 'click', markpin);
-	    L.DomUtil.create('i', "fa fa-map-pin", button);
+	    L.DomUtil.create('i', "fa-map-pin", button);
 
             button = L.DomUtil.create('a', 'leaflet-control-button', container);
             L.DomEvent.disableClickPropagation(button);
             L.DomEvent.on(button, 'click', showcfg);
-	    L.DomUtil.create('i', "fa fa-gear", button);
+	    L.DomUtil.create('i', "fa-gear", button);
 
 	    button = L.DomUtil.create('a', 'leaflet-control-button', container);
 	    L.DomEvent.disableClickPropagation(button);
 	    L.DomEvent.on(button, 'click', sharegpx);
-	    L.DomUtil.create('i', "fa fa-road", button);
+	    L.DomUtil.create('i', "fa-road", button);
 	    if (!('share' in navigator))
    	        gpxexportbutton = button;
 
