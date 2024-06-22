@@ -462,7 +462,7 @@ function audioinit() {
     ];
 
     var a;
-    console.log('process audio - start ' + (new Date()));
+    report('process audio - start ' + (new Date()));
 
     // sound to zero
     // pause instead of play?
@@ -473,11 +473,11 @@ function audioinit() {
 	a.src = 'audio/' + clip + '.mp3';
 	a.onended = audionext;
 	a.autoplay = true;
-	a.play();
+	a.pause();
 	audiodict[clip] = a
     }
 
-    console.log('process audio - finish ' + (new Date()));
+    report('process audio - finish ' + (new Date()));
 }
 
 var audioqueue = [];
