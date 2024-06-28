@@ -1,4 +1,6 @@
 // Helm Help
+// missing blue dots!
+
 var map = null;
 var log = null;
 
@@ -10,7 +12,6 @@ var routes = null;
 var waypoints = null;
 
 var maplet = null;
-var mapcenter = null;
 
 var controls = null;
 var msg = null;
@@ -25,6 +26,76 @@ const MAX_CACHE_AGE_MILLISECOND = 20*MAX_NEW_POSITION_MILLISECOND;
 
 const MAPTILE_SERVER = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const MAPTILE_CR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+
+class Bearing {
+
+    constructor (angle) {
+	this.direction = angle < 0 ? 360 - (-angle % 360) : angle % 360;
+    }
+
+    angleTo(bearing) {
+	return this.distance(this.direction, bearing.direction)
+    };
+
+    angleFrom(bearing) {
+	return -this.distance(this.direction, bearing.direction);
+    }
+
+    distance(a, b) {
+	var d = b - a;
+	if (d > 180) d -= 360;
+	else if (d < -180) d += 360;
+	return d;
+    }
+
+    compasspoint(rose) {
+	return rose[Math.round(this.direction * rose.length / 360) % rose.length];
+    }
+
+    compass8() {
+	return this.compasspoint(["N", "NE", "E", "SE", "S", "SW", "W", "NW"]);
+    }
+    
+    compass16() {
+	return this.compasspoint([
+	    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+	]);
+    }
+    
+    compass32() {
+	return this.compasspoint([
+	    "N", "NbE", "NNE", "NEbN", "NE", "NEbE", "ENE", "EbN",
+	    "E", "EbS", "ESE", "SEbE", "SE", "SEbS", "SSE", "SbE",
+	    "S", "SbW", "SSW", "SWbS", "SW", "SWbW", "WSW", "WbS",
+	    "W", "WbN", "WNW", "NWbW", "NW", "NWbN", "NNW", "NbW"
+	]);
+    }
+    
+    compass(points, type) {
+	var c;
+	points = points || 16;
+	type = type || "short";
+	if (points <= 8) c = this.compass8();
+	else if (points <= 16) c = this.compass16();
+	else c = this.compass32();
+	if (type == "short")
+	    return c;
+	var w = [];
+	for (var i = 0; i < c.length; i++)
+	    switch(c[i]) {
+	    case 'N': w.push('north'); break;
+	    case 'E': w.push('east'); break;
+	    case 'S': w.push('south'); break;
+	    case 'W': w.push('west'); break;
+	    default: w.push('by'); break;
+	    }
+	return w.join(' ');
+    }
+
+    toString() {
+	return ["bearing", this.direction.toFixed(0)].join(' ');
+    }
+}
 
 const starttimes = [
     "Now",
@@ -183,6 +254,7 @@ function closeoverlay () {
 }
 
 function report(message) {
+    //console.log(message);
     log.innerHTML += '<br />' + message;
     msg.innerHTML = message;
 }
@@ -324,6 +396,13 @@ function mapracecourse() {
     };
 }
 
+function racemidmap() {
+    return [
+	(racecoursedetails['minlat'] + racecoursedetails['maxlat']) / 2,
+	(racecoursedetails['minlon'] + racecoursedetails['maxlon']) / 2
+    ];
+}
+
 function showlog () {
     setwidth("overlay", "100%");
     hide("log", false);
@@ -333,6 +412,7 @@ var gpxexportbutton = null;
 
 function stoptracking () {
     var e = controls._container.firstChild.firstChild;
+    report('tracking stopped');
     L.DomUtil.removeClass(e, 'fa-stop');
     L.DomUtil.addClass(e, 'fa-play');
     if (tracker) {
@@ -547,7 +627,8 @@ function gpxdatafile() {
     l.push('<gpx version="1.1" creator="HelmHelp - https://cygnyx.github.io/HelmHelp/" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">');
     l.push('<trk><name>Helm Help Track ' + (new Date()).toISOString() + '</name>');
     l.push('<trkseg>');
-    for (const e of path) {
+    for (var i = path.length - 1; i >=0; i--) {
+	const e = path[i];
 	var ct = new Date(e[timcol]);
 	l.push('<trkpt lat="' + e[latcol] + '" lon="' + e[loncol] + '"><time>"' + ct.toISOString() + '"</time></trkpt>');
     }
@@ -619,10 +700,71 @@ function getElementValue(parent, tag) {
 
 // https://github.com/We-Gold/gpxjs/blob/main/lib/parse.ts
 
-function loadcachedgpxtrack(gpxstring) {
+function loadcachedgpxtrack(gpxstring, url) {
+    const gpxa = url.split(' ');
+    var gpxtracktime = null;
+    var gpxtrackskip = null;
+    var gpxtrackduration = null;
+    var sword, fword;
+
+    switch (gpxa.length) {
+    default:
+	report('bad gpx specification: ' + gpxa);
+	return;
+    case 0:
+	report('no track time information');
+	return;
+    case 1:
+	sword = null;
+	fword = null;
+	break;
+    case 2:
+	sword = gpxa[1];
+	fword = "5m";
+	break;
+    case 3:
+	sword = gpxa[1];
+	fword = gpxa[2];
+	break;
+    }
+
+    var hhmm;
+    var etime;
+    if (sword) {
+	hhmm = sword.split(':')
+
+	if (hhmm.length == 1) {
+	    gpxtracktime = null;
+	    etime = hhmm;
+	} else {
+	    gpxtracktime = hhmm;
+	    etime = 0;
+	}
+    }
+    
+    function duration(s) {
+	if (!s) return s;
+	return (s[s.length-1] == 's' ? 1 : 60) * parseInt(s);
+    }
+
+    gpxtrackskip = duration(etime);
+    gpxtrackduration = duration(fword);
+    report('gpx track time ' + [gpxtracktime, gpxtrackskip, gpxtrackduration].join(', '));
+
     const domParser = new window.DOMParser()
     const gpxtrack = domParser.parseFromString(gpxstring, "text/xml")
     const tracks = Array.from(gpxtrack.querySelectorAll("trk"))
+    var st = null;
+    var et = null;
+    var ftime = true;
+
+    for (const e in tracklines)
+	tracklines[e][1].remove();
+    tracklines = null;
+    for (const e in trackmarks)
+	trackmarks[e][1].remove();
+    trackmarks = [];
+
     path = [];
     for (const te of tracks) {
 	const trksegs = Array.from(gpxtrack.querySelectorAll("trkseg"));
@@ -634,18 +776,187 @@ function loadcachedgpxtrack(gpxstring) {
 		const ele = parseFloat(getElementValue(tp, "ele"));
 		const tim = getElementValue(tp, "time");
 		const tm = (new Date(tim)).getTime();
-		path.push([lat, lon, tm, 0., 0., 0.]);
+		if (ftime) {
+		    ftime = false;
+		    var etime = null;
+		    const rt = new Date(tim);
+		    if (gpxtracktime) {
+			//console.log(rt);
+			if (gpxtracktime[0] != '')
+			    rt.setHours(parseInt(gpxtracktime[0]));
+			if (gpxtracktime[1] != '')
+			    rt.setMinutes(parseInt(gpxtracktime[1]));
+			etime = (rt.getTime() - tm) / 1000;
+			//console.log('for abs time wait seconds ' + etime);
+		    }
+		    if (gpxtrackskip)
+			etime = (etime ? etime : 0) + gpxtrackskip;
+		    var d;
+		    if (gpxtrackduration != null && gpxtrackduration < 0) {
+			d = etime;
+			etime = (etime ? etime : 0) + gpxtrackduration;
+		    } else
+			d = gpxtrackduration;
+		    if (etime)
+			st = new Date(tm + (etime * 1000)).getTime();
+		    if (!gpxtrackduration)
+			et = null;
+		    else if (gpxtrackduration < 0)
+			et = new Date(tm + (d * 1000)).getTime();
+		    else
+			et = new Date((st ? st : tm) + (d * 1000)).getTime();
+		    //console.log('st: ' + st)
+		    //console.log('et: ' + et)
+		}
+		if (st)
+		    if (tm < st) {
+			continue;
+		    }
+		if (et)
+		    if (tm > et)
+			continue;
+		path.unshift([lat, lon, tm, 0., 0., 0.]);
 	    }
 	}
     }
-    for (var idx = 1; idx < path.length-1; idx++)
+    for (var idx = path.length-2; idx > 0; idx--)
 	calcpath(idx);
 
-    for (var idx = 1; idx < path.length-1; idx++)
+    for (var idx = path.length-1; idx >= 0; idx--)
 	drawline(idx);
 
-    //polygroup.redraw();
+    addtacks(1, path.length-1); // from now to beginning
+}
 
+function addtacks(finish, start) {
+    if ((start - finish) < 6)
+	return;
+
+    var idx;
+    var pb, nb, pk;
+    var bd, lidx = -1, lbd, bdir = 0;
+    const mb = 60;
+
+    function a3(a, b, c) {
+	if (a < mb) {
+	    if (b > 180) b -= 360;
+	    if (c > 180) c -= 360;
+	} else if (a > 360 - mb) {
+	    if (b < 180) b += 360;
+	    if (c < 180) c += 360;
+	}
+	return (a + b + c) / 3;
+    }
+
+    var tacks = [];
+    
+    for (var idx = start - 3; idx >= finish + 3; idx--) {
+	if (lidx < -1) {
+	    lidx += 1;
+	    continue;
+	}
+	pk = Math.round(10 *(path[idx+3][4] + path[idx+2][4] + path[idx+1][4]) / 3) / 10;
+	ck = path[idx][4];
+	cb = path[idx][5];
+	pb = Math.round(a3(path[idx+3][5], path[idx+2][5], path[idx+1][5]));
+	nb = Math.round(a3(path[idx-3][5], path[idx-2][5], path[idx-1][5]));
+	bd = pb - nb;
+	if (bd > mb) {
+	    bdir = 1;
+	} else if (bd < -mb) {
+	    bdir = -1;
+	} else
+	    bdir = 0;
+
+	if (lidx == -1) {
+	    if (bdir) {
+		lbdir = bdir;
+		lidx = idx;
+		lbd = bd;
+		lk = ck;
+		lpk = pk;
+		lcb = cb;
+		console.log('possible tack at idx, bd, bearing old, new, knots old, cur: ' + [idx, bd, pb, nb, pk, ck]);
+	    }
+	} else if (lbdir == bdir && lidx == idx + 1) {
+	    if (bd > lbd) {
+		lidx = idx;
+		lbd = bd;
+		lk = ck;
+		lpk = pk;
+		console.log('improved tack at idx, bd, bearing old, new, knots old, cur: ' + [idx, bd, pb, nb, pk, ck]);
+	    }
+	} else {
+	    report('likely tack at idx, bd, lpk: ' + [lidx, lbd, lpk]);
+	    tacks.push([lidx, lbd, lpk]); 
+	    lidx = -6;
+	}
+    }
+
+    // cluster tacks
+    function metric(a, b) {
+	var d = b - a;
+	//console.log('d,b,a:' + [d, b, a]);
+	if (d > 180) d -= 360;
+	else if (d < -180) d += 360;
+	return d;
+    }
+
+    var i, idx, bi;
+    var m0 = 90, m1 = 270;
+    var d0, d1;
+    var s0, s1;
+    var c0, c1;
+    var assign = new Array(tacks.length);
+    console.log('cluster:')
+
+    for (var iter = 0; iter < 15; iter++) {
+	s0 = 0;	s1 = 0;
+	c0 = 0;	c1 = 0;
+	for (i = 0; i < tacks.length; i++) {
+	    idx = tacks[i][0];
+	    cb = path[idx][5];
+	    d0 = metric(m0, cb);
+	    d1 = metric(m1, cb);
+	    //console.log('idx, bearing, d0, d1: ' + [idx, cb, d0, d1]);
+	    if (Math.abs(d0) < Math.abs(d1)) {
+		assign[i] = 0;
+		s0 += d0;
+		c0++;
+	    } else {
+		assign[i] = 1;
+		s1 += d1;
+		c1++;
+	    }
+	}
+	if (c0 == 0 || c1 == 0 || s0 == 0 || s1 == 0)
+	    break;
+	m0 = m0 + Math.round(s0 / c0);
+	m1 = m1 + Math.round(s1 / c1);
+	m0 = (m0 + 360) % 360;
+	m1 = (m1 + 360) % 360;
+	//console.log('mean TWD, dist, cnt: ' + [m0, m1, s0, s1, c0, c1])
+    }
+
+    console.log('final mean TWD, dist, cnt: ' + [m0, m1, s0, s1, c0, c1])
+    p = c0 > c1 ? 0 : 1;
+    for (i = 0; i < tacks.length; i++) {
+	idx = tacks[i][0];
+	lat = path[idx][0];
+	lon = path[idx][1];
+	cb = path[idx][5];
+	tim = path[idx][2];
+	if (assign[i] == p) {
+	    circ = L.circle([lat, lon],{
+		color: '#f00',
+		fillOpacity: 0.2,
+		radius: 5
+	    }).bindPopup(
+		'tack: TWD ' + cb + ' at ' + new Date(tim).toLocaleTimeString()
+	    ).addTo(maplet);
+	    trackmarks.unshift([tim, circ]);
+	}
+    }
 }
 
 function cacheclear() {
@@ -655,16 +966,18 @@ function cacheclear() {
 async function cachefile(url, procfunc, init = null) {
     if (!url || url == "")
 	return;
-    txt = localStorage.getItem(url);
+    url = url.trim();
+    var ua = url.split(' ');
+    txt = localStorage.getItem(ua[0]);
     if (txt === null) {
-	var r = await fetch(url, init);
+	var r = await fetch(ua[0], init);
 	txt = await r.text();
 	if (txt.length > 0) {
-	    localStorage.setItem(url, txt);
-	    procfunc(txt);
+	    localStorage.setItem(ua[0], txt);
+	    procfunc(txt, url);
 	}
     } else {
-	procfunc(txt);
+	procfunc(txt, url);
     }
 }
 
@@ -745,10 +1058,7 @@ function setcourse(sname) {
 	localStorage.setItem("racecourse", sname);
 	mapracecourse();
 	mapracemarks();
-    }
-    if (mapcenter) {
-	mapcenter = midmap();
-	maplet.panTo(mapcenter);
+	maplet.panTo(racemidmap());
     }
 }
 
@@ -827,14 +1137,14 @@ function nmb(lat1, lon1, lat2, lon2) {
 var path = []; // lat, lon, time, meters from prior, knots, bearing
 
 function calcpath(idx) {
-
     const tom = 1852;
 
-    const c = path[idx];
-    const p = path[idx-1];
-    const n = path[idx+1];
-
     //console.log('idx: ' + idx);
+
+    const c = path[idx];
+    const p = path[idx+1];
+    const n = path[idx-1];
+
     //console.log('c: ' + c);
     //console.log('p: ' + p);
     //console.log('n: ' + n);
@@ -866,72 +1176,115 @@ function calcpath(idx) {
 
     var k = (kcn + kpc) / 2;
 
-    path[idx] = [c[0], c[1], c[2], dpc * tom, k, bpn];
+    function r(n, s) { return Math.round(n * s)/s };
+    c[0] = r(c[0], 100000);
+    c[1] = r(c[1], 100000);
+    var m = r(dpc * tom, 10);
+    k = r(k, 10);
+    bpn = r(bpn,1);
+    path[idx] = [c[0], c[1], c[2], m, k, bpn];
     //console.log(path[idx]);
 
-    if (idx == 1)
-	path[idx] = [p[0], p[1], p[2], dpc * tom, k, bpn];
+    if (idx == path.length - 2) {
+	p[0] = r(p[0], 100000);
+	p[1] = r(p[1], 100000);
+	path[idx+1] = [p[0], p[1], p[2], m, k, bpn];
+    }
 }
 
 
 
-var lastline = null;
-var lastspeed = null;
-var polygroup = null;
+var tracklines = null;
+var trackmarks = [];
 
 function drawline(idx) {
     var old = true;
     const c = path[idx];
     const lat = c[0];
     const lon = c[1];
+    const tim = c[2];
     const dis = c[3];
     const knt = c[4];
+    const ang = c[5];
     const clr = ['#00ff000', '#99ff00', '#eeff00', '#ffff00', '#ffbb00', '#ffee00', '#ffcc00', '#ff9900', '#ff0000'];
     const cl = clr.length;
     var k = Math.trunc(knt);
     var pts = [[lat, lon]];
+    var seconds = 100000;
+    var circ;
+    
+    if (trackmarks.length > 0)
+	seconds = (tim - trackmarks[0][0]) / 1000;
+
+    if (seconds >= 60) {
+	circ = L.circle(pts[0], {
+	    color: '#00f',
+	    fillOpacity: 0.2,
+	    radius: 5
+	}).bindPopup(knt.toFixed(1) + ' knots ' + ang.toFixed(0) + ' bearing ' + new Date(tim).toLocaleTimeString()).addTo(maplet);
+	trackmarks.unshift([tim, circ]);
+    }
 
     if (k >= cl)
 	k = cl - 1;
     
-    if ((lastline == null) || (lastspeed == null)) {
+    if (tracklines == null) {
 	old = false;
     } else {
-	if (k != lastspeed) {
+	if (k != tracklines[0][0])
 	    old = false;
-	}
     }
 
-    if (lastline) {
-	lastline._latlngs.push(pts[0]);
-	if (old)
-	    return;
-	//lastline.redraw();
+    if (tracklines)
+	tracklines[0][1]._latlngs.push(pts[0]);
+
+    if (!old) {
+	var line = L.polyline(pts, {
+	    color: clr[k],
+	    bubblingMouseEvents: true
+	});
+	maplet.addLayer(line);
+	
+	if (!tracklines)
+	    tracklines = [];
+
+	tracklines.unshift([k, line]); 
+   }
+}
+
+function centeratlastposition() {
+    const p = path[0];
+    const ll = new L.LatLng(p[0], p[1]);
+
+    report('pan to ' + ll);
+
+    if (currposition)
+	currposition.setLatLng(ll);
+    else {
+	currposition = L.circle([p[0], p[1]], {
+	    color: '#000',
+	    fillColor: '#000',
+	    fillOpacity: 1.0,
+	    radius: 3
+	}).addTo(maplet);
     }
 
-    lastline = L.polyline(pts, {
-	color: clr[k],
-	bubblingMouseEvents: true
-    });
-
-    polygroup.addLayer(lastline);
-    maplet.setView([lat, lon], 15);
-    //maplet.fitBounds(lastline.getBounds());
-    
-    lastspeed = k;
+    maplet.panTo(ll);
 }
 
 function drawnewsegment(detail) {
     return new Promise(function (resolve) {
-	path.push([detail[0], detail[1], detail[2], 0.0, 0.0, 0.0]);
+	path.unshift([detail[0], detail[1], detail[2], 0.0, 0.0, 0.0]);
 	if (path.length > 2) {
 	    calcpath(path.length-2);
 	    drawline(path.length-2);
-	    //polygroup.redraw();
+	    centeratlastposition();
 	}
 	return resolve(detail);
     });
 }
+
+var currposition = null;
 
 function onload() {
     map = document.getElementById("map");
@@ -939,7 +1292,6 @@ function onload() {
 
     maplet = L.map("map");
     maplet.setView(CENTER_LAT_LNG, 13);
-    polygroup = L.featureGroup().addTo(maplet);
 
     map.addEventListener("GEO_EVENT", updatemap);
 
@@ -947,7 +1299,6 @@ function onload() {
 	maxZoom: 19,
 	attribution: MAPTILE_CR
     }).addTo(maplet);
-
 
     L.Control.Textbox = L.Control.extend({
 	options: { position: 'topright' },
@@ -1035,6 +1386,7 @@ function onload() {
 	    }
 	}
     }
+    setvalue("gpxtrackurl");
     setvalue("waypointsurl");
     setconftimes();
     setconfseries();
