@@ -1,5 +1,5 @@
 // Helm Help
-// missing blue dots!
+// fix tack when pointing north
 
 var map = null;
 var log = null;
@@ -34,14 +34,14 @@ class Bearing {
     }
 
     angleTo(bearing) {
-	return this.distance(this.direction, bearing.direction)
+	return this.distancefromto(this.direction, bearing.direction)
     };
 
     angleFrom(bearing) {
-	return -this.distance(this.direction, bearing.direction);
+	return -this.distancefromto(this.direction, bearing.direction);
     }
 
-    distance(a, b) {
+    static distancefromto(a, b) {
 	var d = b - a;
 	if (d > 180) d -= 360;
 	else if (d < -180) d += 360;
@@ -607,7 +607,7 @@ function sharegpx() {
 	report(data);
 	navigator.share({
 	    title: fn,
-	    text: "Helm Help Track 1",
+	    text: "Another Helm Help Track",
 	    files: [file]
 	}).then(function () {
 	    report('exported successfully');
@@ -622,19 +622,96 @@ function gpxdatafile() {
     const latcol = 0;
     const loncol = 1;
     const timcol = 2;
+    var dt = new Date();
+
+    if (path.length > 0) {
+	dt = path[path.length - 1][timcol];
+	dt = new Date(dt);
+    }
 
     var l = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'];
     l.push('<gpx version="1.1" creator="HelmHelp - https://cygnyx.github.io/HelmHelp/" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">');
-    l.push('<trk><name>Helm Help Track ' + (new Date()).toISOString() + '</name>');
+    l.push('<metadata>');
+    l.push('<link href="cygnyx.github.io/HelmHelp"><text>Helm Help</text></link>')
+    l.push('<time>' + dt.toISOString() + '</time>')
+    l.push('<keywords>HelmHelp</keywords>')
+    l.push('<metadata>');
+    l.push('</metadata>');
+
+    for (const name of Object.keys(marks).sort()) {
+	var w = marks[name]
+	report('mark ' + name + ' at ' + w.latitude + ' ' + w.longitude);
+	l.push('<wpt lat="' + w.latitude + '" lon="' + w.longitude + '"><name>' + name + '</name></wpt>')
+    }
+
+    if (racecourse) {
+	var rmarks = {}
+	racecourse.forEach(function (rounding) {
+	    var a = roundinggetmarks(rounding);
+	    if (a)
+		a.forEach(function(e) {rmarks[e]=0;});
+	});
+	rmarks = Object.keys(rmarks).sort();
+	for (const mark of rmarks) {
+	    var m;
+	    if (mark in routes.waypoints.overrides)
+		m = routes.waypoints.overrides[mark];
+	    else if (mark in waypoints)
+		m = waypoints[mark];
+	    else
+		m = null;
+	    if (m) {
+		l.push('<wpt lat="' + m[0] + '" lon="' + m[1] + '"><name>' + mark + '</name></wpt>')
+	    }
+	}
+
+	var m;
+	l.push('<rte><desc>' +  + '</desc>');
+	for (const rounding of racecourse) {
+	    var typ = rounding.substring(0, 1);
+	    var mrk = rounding.substring(2);
+	    var cmt = ''
+	    if (typ == 'l') {
+		cmt = 'line mark'
+		if (mrk in routes.lines) {
+		    a = routes.lines[mrk];
+		    cmt = mrk;
+		    mrk = [a[0], a[1]];
+		}
+	    } else if (typ == 'p') {
+		cmt = "port rounding";
+		mrk = [mrk];
+	    } else if (typ == 's') {
+		cmt = "starboard rounding";
+		mrk = [mrk];
+	    } else
+		mrk = [];
+	    for (const name in mrk) {
+		var mark = mrk[name];
+		if (mark in routes.waypoints.overrides)
+		    m = routes.waypoints.overrides[mark];
+		else if (mark in waypoints)
+		    m = waypoints[mark];
+		else
+		    m = null;
+		if (m)
+		    l.push('<rtept lat="' + m[0] + '" lon="' + m[1] + '"><name>' + mark + '</name><cmt>'+cmt+'</cmt></rtept>')
+	    }
+	l.push('</rte>');
+	}
+    }
+
+
+    l.push('<trk><name>Helm Help Track ' + dt.toISOString() + '</name>');
     l.push('<trkseg>');
     for (var i = path.length - 1; i >=0; i--) {
 	const e = path[i];
 	var ct = new Date(e[timcol]);
-	l.push('<trkpt lat="' + e[latcol] + '" lon="' + e[loncol] + '"><time>"' + ct.toISOString() + '"</time></trkpt>');
+	l.push('<trkpt lat="' + e[latcol] + '" lon="' + e[loncol] + '"><time>' + ct.toISOString() + '</time></trkpt>');
     }
     l.push('</trkseg></trk></gpx>');
 
-    return l.join('');
+    return l.join('\n');
 }
 
 function setseries(sname) {
@@ -680,7 +757,10 @@ function loadcachedwaypoints(csv) {
     waypoints = a;
 }
 
+var lastroutesjson = null;
+
 function loadcachedroutes(json) {
+    lastroutesjson = json;
     routes = JSON.parse(json);
     for (const [n, v] of Object.entries(routes.waypoints.urls))
 	cachefile(v, loadcachedwaypoints);
@@ -760,22 +840,28 @@ function loadcachedgpxtrack(gpxstring, url) {
 
     for (const e in tracklines)
 	tracklines[e][1].remove();
-    tracklines = null;
+    tracklines = [];
     for (const e in trackmarks)
 	trackmarks[e][1].remove();
     trackmarks = [];
 
     path = [];
+    console.log('trks: ' + tracks.length);
     for (const te of tracks) {
 	const trksegs = Array.from(gpxtrack.querySelectorAll("trkseg"));
 	for (const tse of trksegs) {
 	    const trkpts = Array.from(tse.querySelectorAll("trkpt"));
+	    console.log('trkseg with ' + trkpts.length + ' points.');
 	    for (const tp of trkpts) {
-		const lat = parseFloat(tp.getAttribute("lat"));
-		const lon = parseFloat(tp.getAttribute("lon"));
-		const ele = parseFloat(getElementValue(tp, "ele"));
-		const tim = getElementValue(tp, "time");
-		const tm = (new Date(tim)).getTime();
+		var lat = parseFloat(tp.getAttribute("lat"));
+		var lon = parseFloat(tp.getAttribute("lon"));
+		var ele = parseFloat(getElementValue(tp, "ele"));
+		var tim = getElementValue(tp, "time");
+		if (tim[0] == '"' && tim[tim.length-1] == '"')
+		    tim = tim.substr(1,tim.length-2)
+		//console.log('tim: ' + tim);
+		var tm = (new Date(tim)).getTime();
+		//console.log('tm: ' + tm);
 		if (ftime) {
 		    ftime = false;
 		    var etime = null;
@@ -819,6 +905,9 @@ function loadcachedgpxtrack(gpxstring, url) {
 	    }
 	}
     }
+
+    report('read ' + path.length + ' points.');
+
     for (var idx = path.length-2; idx > 0; idx--)
 	calcpath(idx);
 
@@ -828,80 +917,77 @@ function loadcachedgpxtrack(gpxstring, url) {
     addtacks(1, path.length-1); // from now to beginning
 }
 
+function average() {
+    var s = 0;
+    for (var i = 0; i < arguments.length; i++)
+	s += arguments[i];
+    return s / arguments.length;
+}
+
+function averagebearing() {
+    const b = arguments[0];
+    const n = arguments.length;
+    const invn = 1.0 / n;
+    var v = 0;
+    for (var i = 1; i < n; i++)
+	v += Bearing.distancefromto(b, arguments[i]) * invn;
+    return Math.round(b + s);
+}
+
+function scale(f, scale) {
+    return Math.round(f / scale) * scale;
+}
+
 function addtacks(finish, start) {
     if ((start - finish) < 6)
 	return;
 
     var idx;
     var pb, nb, pk;
-    var bd, lidx = -1, lbd, bdir = 0;
+    var bd, lidx = -1, fidx = -1, lbd, bdir = 0, lbdir = 0;
     const mb = 60;
-
-    function a3(a, b, c) {
-	if (a < mb) {
-	    if (b > 180) b -= 360;
-	    if (c > 180) c -= 360;
-	} else if (a > 360 - mb) {
-	    if (b < 180) b += 360;
-	    if (c < 180) c += 360;
-	}
-	return (a + b + c) / 3;
-    }
+    const mtr = 3;
+    const knt = 4;
+    const dir = 5;
 
     var tacks = [];
-    
+
     for (var idx = start - 3; idx >= finish + 3; idx--) {
 	if (lidx < -1) {
 	    lidx += 1;
 	    continue;
 	}
-	pk = Math.round(10 *(path[idx+3][4] + path[idx+2][4] + path[idx+1][4]) / 3) / 10;
-	ck = path[idx][4];
-	cb = path[idx][5];
-	pb = Math.round(a3(path[idx+3][5], path[idx+2][5], path[idx+1][5]));
-	nb = Math.round(a3(path[idx-3][5], path[idx-2][5], path[idx-1][5]));
-	bd = pb - nb;
-	if (bd > mb) {
+	pk = scale(average(path[idx+3][knt], path[idx+2][knt], path[idx+1][knt]), .1);
+	pb = averagebearing(path[idx+3][dir], path[idx+2][dir], path[idx+1][dir]);
+	nb = averagebearing(path[idx-3][dir], path[idx-2][dir], path[idx-1][dir]);
+	bd = Bearing.distancefromto(pb, nb);
+	if (bd > mb)
 	    bdir = 1;
-	} else if (bd < -mb) {
+	else if (bd < -mb)
 	    bdir = -1;
-	} else
+	else
 	    bdir = 0;
 
 	if (lidx == -1) {
-	    if (bdir) {
-		lbdir = bdir;
+	    if (bdir != 0) {
+		fidx = idx;
 		lidx = idx;
-		lbd = bd;
-		lk = ck;
-		lpk = pk;
-		lcb = cb;
-		console.log('possible tack at idx, bd, bearing old, new, knots old, cur: ' + [idx, bd, pb, nb, pk, ck]);
+		lbdir = bdir;
+		report('possible tack at idx, bd, bearing old, new, knots old, cur: ' + [idx, bd, pb, nb]);
 	    }
 	} else if (lbdir == bdir && lidx == idx + 1) {
-	    if (bd > lbd) {
-		lidx = idx;
-		lbd = bd;
-		lk = ck;
-		lpk = pk;
-		console.log('improved tack at idx, bd, bearing old, new, knots old, cur: ' + [idx, bd, pb, nb, pk, ck]);
-	    }
+	    lidx = idx;
+	    report('continue tack at idx, bd, bearing old, new, knots old, cur: ' + [idx, bd, pb, nb]);
 	} else {
-	    report('likely tack at idx, bd, lpk: ' + [lidx, lbd, lpk]);
-	    tacks.push([lidx, lbd, lpk]); 
+	    report('likely tack between: ' + fidx + ' and ' + lidx);
+	    tacks.push([fidx, lidx]);
 	    lidx = -6;
+	    fidx = -1;
+	    bdir = 0;
 	}
     }
 
     // cluster tacks
-    function metric(a, b) {
-	var d = b - a;
-	//console.log('d,b,a:' + [d, b, a]);
-	if (d > 180) d -= 360;
-	else if (d < -180) d += 360;
-	return d;
-    }
-
     var i, idx, bi;
     var m0 = 90, m1 = 270;
     var d0, d1;
@@ -914,11 +1000,11 @@ function addtacks(finish, start) {
 	s0 = 0;	s1 = 0;
 	c0 = 0;	c1 = 0;
 	for (i = 0; i < tacks.length; i++) {
-	    idx = tacks[i][0];
-	    cb = path[idx][5];
-	    d0 = metric(m0, cb);
-	    d1 = metric(m1, cb);
-	    //console.log('idx, bearing, d0, d1: ' + [idx, cb, d0, d1]);
+	    fidx = tacks[i][0];
+	    lidx = tacks[i][1];
+	    cb = averagebearing(path[fidx][5], path[lidx][5]);
+	    d0 = Bearing.distancefromto(m0, cb);
+	    d1 = Bearing.distancefromto(m1, cb);
 	    if (Math.abs(d0) < Math.abs(d1)) {
 		assign[i] = 0;
 		s0 += d0;
@@ -935,24 +1021,26 @@ function addtacks(finish, start) {
 	m1 = m1 + Math.round(s1 / c1);
 	m0 = (m0 + 360) % 360;
 	m1 = (m1 + 360) % 360;
-	//console.log('mean TWD, dist, cnt: ' + [m0, m1, s0, s1, c0, c1])
     }
 
     console.log('final mean TWD, dist, cnt: ' + [m0, m1, s0, s1, c0, c1])
     p = c0 > c1 ? 0 : 1;
     for (i = 0; i < tacks.length; i++) {
-	idx = tacks[i][0];
-	lat = path[idx][0];
-	lon = path[idx][1];
-	cb = path[idx][5];
-	tim = path[idx][2];
+	fidx = tacks[i][0];
+	lidx = tacks[i][1];
+	cb = averagebearing(path[fidx][5], path[lidx][5]);
+	lat = path[fidx][0];
+	lon = path[fidx][1];
+	tim = path[fidx][2];
+	console.log(fidx, path[fidx][2]);
+	console.log(lidx, path[lidx][2]);
 	if (assign[i] == p) {
 	    circ = L.circle([lat, lon],{
 		color: '#f00',
 		fillOpacity: 0.2,
 		radius: 5
 	    }).bindPopup(
-		'tack: TWD ' + cb + ' at ' + new Date(tim).toLocaleTimeString()
+		'tack: TWD ' + cb + ' Seconds ' + scale((path[lidx][2] - tim)/1000, .1).toFixed(1)
 	    ).addTo(maplet);
 	    trackmarks.unshift([tim, circ]);
 	}
@@ -1194,11 +1282,11 @@ function calcpath(idx) {
 
 
 
-var tracklines = null;
+var tracklines = [];
 var trackmarks = [];
 
 function drawline(idx) {
-    var old = true;
+    var old = false;
     const c = path[idx];
     const lat = c[0];
     const lon = c[1];
@@ -1228,15 +1316,19 @@ function drawline(idx) {
     if (k >= cl)
 	k = cl - 1;
     
-    if (tracklines == null) {
-	old = false;
-    } else {
-	if (k != tracklines[0][0])
-	    old = false;
-    }
+    if (tracklines.length > 0)
+	if (k == tracklines[0][0])
+	    old = true;
 
-    if (tracklines)
-	tracklines[0][1]._latlngs.push(pts[0]);
+    //console.log('set ' + pts[0] + ' k: ' + k + ' old: ' + old)
+
+    if (tracklines.length > 0) {
+	// console.log('set ' + pts[0])
+	//console.log('len: ' + tracklines[0][1]._latlngs.length)
+	tracklines[0][2].unshift(pts[0]);
+	tracklines[0][1].setLatLngs(tracklines[0][2]);
+	//	tracklines[0][1]._latlngs.push(pts[0]);
+    }
 
     if (!old) {
 	var line = L.polyline(pts, {
@@ -1245,10 +1337,11 @@ function drawline(idx) {
 	});
 	maplet.addLayer(line);
 	
-	if (!tracklines)
-	    tracklines = [];
+	if (tracklines.length > 0)
+	    pts = [tracklines[0][2][0], pts[0]]
 
-	tracklines.unshift([k, line]); 
+	//console.log('new: ' + pts + ' k: ' + k)
+	tracklines.unshift([k, line, pts]);
    }
 }
 
@@ -1278,8 +1371,8 @@ function drawnewsegment(detail) {
 	if (path.length > 2) {
 	    calcpath(path.length-2);
 	    drawline(path.length-2);
-	    centeratlastposition();
 	}
+	centeratlastposition();
 	return resolve(detail);
     });
 }
