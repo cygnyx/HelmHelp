@@ -846,12 +846,12 @@ function loadcachedgpxtrack(gpxstring, url) {
     trackmarks = [];
 
     path = [];
-    console.log('trks: ' + tracks.length);
+    report('trks: ' + tracks.length);
     for (const te of tracks) {
 	const trksegs = Array.from(gpxtrack.querySelectorAll("trkseg"));
 	for (const tse of trksegs) {
 	    const trkpts = Array.from(tse.querySelectorAll("trkpt"));
-	    console.log('trkseg with ' + trkpts.length + ' points.');
+	    report('trkseg with ' + trkpts.length + ' points.');
 	    for (const tp of trkpts) {
 		var lat = parseFloat(tp.getAttribute("lat"));
 		var lon = parseFloat(tp.getAttribute("lon"));
@@ -908,8 +908,9 @@ function loadcachedgpxtrack(gpxstring, url) {
 
     report('read ' + path.length + ' points.');
 
-    for (var idx = path.length-2; idx > 0; idx--)
+    for (var idx = path.length-1; idx > 0; idx--) {
 	calcpath(idx);
+    }
 
     for (var idx = path.length-1; idx >= 0; idx--)
 	drawline(idx);
@@ -931,7 +932,7 @@ function averagebearing() {
     var v = 0;
     for (var i = 1; i < n; i++)
 	v += Bearing.distancefromto(b, arguments[i]) * invn;
-    return Math.round(b + s);
+    return Math.round(b + v);
 }
 
 function scale(f, scale) {
@@ -943,8 +944,8 @@ function addtacks(finish, start) {
 	return;
 
     var idx;
-    var pb, nb, pk;
-    var bd, lidx = -1, fidx = -1, lbd, bdir = 0, lbdir = 0;
+    var pb, lpb, nb, pk, rb;
+    var bd, lidx = -1, fidx = -1, bdir = 0, lbdir = 0;
     const mb = 60;
     const mtr = 3;
     const knt = 4;
@@ -952,15 +953,44 @@ function addtacks(finish, start) {
 
     var tacks = [];
 
-    for (var idx = start - 3; idx >= finish + 3; idx--) {
+    function ad(idx) {
+	const ave = average(
+	    path[idx+5][knt], path[idx+4][knt],
+	    path[idx+3][knt], path[idx+2][knt],
+	    path[idx+1][knt]
+	);
+	return scale(ave, .1);
+    }
+
+    function ab(idx) {
+	//report('ab: ' + [ path[idx+5][dir], path[idx+4][dir], path[idx+3][dir], path[idx+2][dir], path[idx+1][dir] ].join(', '));
+	const ave = averagebearing(
+	    path[idx+5][dir], path[idx+4][dir],
+	    path[idx+3][dir], path[idx+2][dir],
+	    path[idx+1][dir]
+	);
+	return ave;
+    }
+
+
+    for (var idx = start - 5; idx >= finish + 5; idx--) {
 	if (lidx < -1) {
 	    lidx += 1;
 	    continue;
 	}
-	pk = scale(average(path[idx+3][knt], path[idx+2][knt], path[idx+1][knt]), .1);
-	pb = averagebearing(path[idx+3][dir], path[idx+2][dir], path[idx+1][dir]);
-	nb = averagebearing(path[idx-3][dir], path[idx-2][dir], path[idx-1][dir]);
-	bd = Bearing.distancefromto(pb, nb);
+	pk = ad(idx);
+	pb = ab(idx);
+	//report('prior bearing: ' + pb);
+	nb = ab(idx-5);
+	//report('_next bearing: ' + nb);
+
+	if (lidx < 0)
+	    rb = pb; // finding new tack
+	else
+	    rb = lpb; // continuing old tack
+	//report('__ref bearing: ' + rb);
+	bd = Bearing.distancefromto(rb, nb); // continuing old tack
+
 	if (bd > mb)
 	    bdir = 1;
 	else if (bd < -mb)
@@ -968,22 +998,28 @@ function addtacks(finish, start) {
 	else
 	    bdir = 0;
 
+	//report('checking tack at idx, bd, bearing: old, new: ' + [idx, bd, rb, nb, bdir].join(', '));
+
 	if (lidx == -1) {
 	    if (bdir != 0) {
 		fidx = idx;
 		lidx = idx;
 		lbdir = bdir;
-		report('possible tack at idx, bd, bearing old, new, knots old, cur: ' + [idx, bd, pb, nb]);
+		lpb = pb;
+		report('possible tack at idx, bd, bearing: old, new: ' + [lidx, bd, lpb, nb, bdir].join(', '));
 	    }
 	} else if (lbdir == bdir && lidx == idx + 1) {
 	    lidx = idx;
-	    report('continue tack at idx, bd, bearing old, new, knots old, cur: ' + [idx, bd, pb, nb]);
-	} else {
+	    report('continue tack at idx, bd, bearing: old, new: ' + [lidx, bd, rb, nb, bdir].join(', '));
+	} else if (fidx - 1 > lidx) {
 	    report('likely tack between: ' + fidx + ' and ' + lidx);
 	    tacks.push([fidx, lidx]);
 	    lidx = -6;
 	    fidx = -1;
 	    bdir = 0;
+	} else if (lidx > -1) {
+	    report('not a tack');
+	    lidx = -1;
 	}
     }
 
@@ -994,7 +1030,7 @@ function addtacks(finish, start) {
     var s0, s1;
     var c0, c1;
     var assign = new Array(tacks.length);
-    console.log('cluster:')
+    report('cluster:')
 
     for (var iter = 0; iter < 15; iter++) {
 	s0 = 0;	s1 = 0;
@@ -1023,7 +1059,7 @@ function addtacks(finish, start) {
 	m1 = (m1 + 360) % 360;
     }
 
-    console.log('final mean TWD, dist, cnt: ' + [m0, m1, s0, s1, c0, c1])
+    report('final mean TWD, dist, cnt: ' + [m0, m1, s0, s1, c0, c1])
     p = c0 > c1 ? 0 : 1;
     for (i = 0; i < tacks.length; i++) {
 	fidx = tacks[i][0];
@@ -1032,8 +1068,8 @@ function addtacks(finish, start) {
 	lat = path[fidx][0];
 	lon = path[fidx][1];
 	tim = path[fidx][2];
-	console.log(fidx, path[fidx][2]);
-	console.log(lidx, path[lidx][2]);
+	report(fidx, path[fidx][2]);
+	report(lidx, path[lidx][2]);
 	if (assign[i] == p) {
 	    circ = L.circle([lat, lon],{
 		color: '#f00',
@@ -1198,7 +1234,7 @@ function updatemap(event) {
     drawnewsegment([d.latitude, d.longitude, d.time]);
 }
 
-function nmb(lat1, lon1, lat2, lon2) {
+function nmb(lat1, lon1, lat2, lon2) { // get nm distance and degree bearing
     if ((lat1 == lat2) && (lon1 == lon2)) return [0., 0.];
 
     const torad = Math.PI / 180.;
@@ -1211,40 +1247,102 @@ function nmb(lat1, lon1, lat2, lon2) {
     if (dist > 1)
         dist = 1;
     dist = Math.acos(dist) * todeg * 60 // 1 nmile = 1 minute
-    //console.log('dist: ' + dist);
+    //report('dist: ' + dist);
     
     const y = Math.sin(radtheta) * Math.cos(radlat2);
     const x = Math.cos(radlat1) * Math.sin(radlat2) -
           Math.sin(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
     const brng = Math.atan2(y, x) * todeg;
-    //console.log('brng: ' + brng);
+    //report('br x: ' + x);
+    //report('br y: ' + y);
+    //report('brng: ' + brng);
 
     return [dist, (brng + 360) % 360];
 }
 
 var path = []; // lat, lon, time, meters from prior, knots, bearing
 
+function thedst(a, b) {
+    return Math.sqrt(a*a + b*b);
+}
+
+function astep(idx, forward) {
+    const step = forward ? -1 : 1;
+    const plen = path.length - 1;
+    const zlvl = 0.000001;
+    var lidx = idx;
+    var d;
+    
+    report('at ' + idx + ' search ' + step + ' [0-' + plen + ']');
+    if (plen == 0) {
+	report('at 0 search exit');
+	return 0;
+    }
+    while (step != 0) {
+	if (forward) {
+	    if (idx == 0)
+		break;
+	} else if (idx == plen)
+	    break;
+	idx += step;
+	report('at ' + idx + ' and lidx ' + lidx);
+	d = thedst(path[lidx][0] - path[idx][0], path[lidx][1] - path[idx][1]);
+	if (d > zlvl)
+	    break;
+	lidx = idx;
+    }
+    report('at ' + idx + ' search exit');
+    return idx;
+}
+
+function getsteps(idx) {
+    const pi = astep(idx, false);
+    const ci = astep(pi, true);
+    const ni = astep(ci, true);
+
+    return [pi, ci, ni];
+}
+
 function calcpath(idx) {
     const tom = 1852;
-
+    const plen = path.length - 1;
     //console.log('idx: ' + idx);
 
-    const c = path[idx];
-    const p = path[idx+1];
-    const n = path[idx-1];
+    const steps = getsteps(idx);
+    const pi = steps[0]
+    const ci = steps[1]
+    const ni = steps[2]
+    
+    if (pi == ci || ci == ni) {
+	report("wait for more data in calcpath on " + idx);
+	return;
+    }
 
-    //console.log('c: ' + c);
-    //console.log('p: ' + p);
-    //console.log('n: ' + n);
+    report("using " + pi + " to " + ci + " to " + ni + " in calcpath on " + idx);
+
+    const c = path[ci];
+    const p = path[pi];
+    const n = path[ni];
+
+    //report('c: ' + c);
+    //report('p: ' + p);
+    //report('n: ' + n);
     
     var plat = p[0], plon = p[1], ptim = p[2];
     var clat = c[0], clon = c[1], ctim = c[2];
     var nlat = n[0], nlon = n[1], ntim = n[2];
 
+    //report('idx, tim: ' + [idx, scale(p[2]/1000,1)].join(', '));
+    //report('idx, pll: ' + [idx, p[0], p[1]].join(', '));
+    //report('idx, cll: ' + [idx, c[0], c[1]].join(', '));
+    //report('idx, nll: ' + [idx, n[0], n[1]].join(', '));
+
     var xp = nmb(plat, plon, clat, clon);
     var xc = nmb(clat, clon, nlat, nlon);
     var xn = nmb(plat, plon, nlat, nlon);
-
+    //report('idx, pc: d, b: ' + [idx, xp[0], xp[1]].join(', '));
+    //report('idx, cn: d, b: ' + [idx, xc[0], xc[1]].join(', '));
+    //report('idx, pn: d, b: ' + [idx, xn[0], xn[1]].join(', '));
     var dpc = xp[0], bpc = xp[1];
     var dcn = xc[0], bcn = xc[1];
     var dpn = xn[0], bpn = xn[1];
@@ -1265,18 +1363,23 @@ function calcpath(idx) {
     var k = (kcn + kpc) / 2;
 
     function r(n, s) { return Math.round(n * s)/s };
+
     c[0] = r(c[0], 100000);
     c[1] = r(c[1], 100000);
     var m = r(dpc * tom, 10);
     k = r(k, 10);
     bpn = r(bpn,1);
     path[idx] = [c[0], c[1], c[2], m, k, bpn];
+    //report('idx final: ' + path[idx].join(', '));
     //console.log(path[idx]);
 
-    if (idx == path.length - 2) {
+    while (idx++ < plen) {
+	if (path[idx][3] > 0)
+	    break;
 	p[0] = r(p[0], 100000);
 	p[1] = r(p[1], 100000);
-	path[idx+1] = [p[0], p[1], p[2], m, k, bpn];
+	path[idx+1] = [p[0], p[1], p[2], 0.1, 0.01, bpn];
+	//report('idx prior: ' + path[idx].join(', '));
     }
 }
 
@@ -1287,6 +1390,10 @@ var trackmarks = [];
 
 function drawline(idx) {
     var old = false;
+
+    if (path.length <= idx)
+	return;
+
     const c = path[idx];
     const lat = c[0];
     const lon = c[1];
@@ -1320,11 +1427,11 @@ function drawline(idx) {
 	if (k == tracklines[0][0])
 	    old = true;
 
-    //console.log('set ' + pts[0] + ' k: ' + k + ' old: ' + old)
+    report('set ' + pts[0] + ' k: ' + k + ' old: ' + old)
 
     if (tracklines.length > 0) {
-	// console.log('set ' + pts[0])
-	//console.log('len: ' + tracklines[0][1]._latlngs.length)
+	report('set ' + pts[0])
+	report('len: ' + tracklines[0][1]._latlngs.length)
 	tracklines[0][2].unshift(pts[0]);
 	tracklines[0][1].setLatLngs(tracklines[0][2]);
 	//	tracklines[0][1]._latlngs.push(pts[0]);
@@ -1340,7 +1447,7 @@ function drawline(idx) {
 	if (tracklines.length > 0)
 	    pts = [tracklines[0][2][0], pts[0]]
 
-	//console.log('new: ' + pts + ' k: ' + k)
+	report('new: ' + pts + ' k: ' + k)
 	tracklines.unshift([k, line, pts]);
    }
 }
@@ -1349,11 +1456,13 @@ function centeratlastposition() {
     const p = path[0];
     const ll = new L.LatLng(p[0], p[1]);
 
-    report('pan to ' + ll);
+    report('of ' + path.length + ' pan to ' + ll);
 
-    if (currposition)
+    if (currposition) {
+	maplet.removeLayer(currposition);
 	currposition.setLatLng(ll);
-    else {
+	currposition.addTo(maplet);
+    } else {
 	currposition = L.circle([p[0], p[1]], {
 	    color: '#000',
 	    fillColor: '#000',
@@ -1368,10 +1477,8 @@ function centeratlastposition() {
 function drawnewsegment(detail) {
     return new Promise(function (resolve) {
 	path.unshift([detail[0], detail[1], detail[2], 0.0, 0.0, 0.0]);
-	if (path.length > 2) {
-	    calcpath(path.length-2);
-	    drawline(path.length-2);
-	}
+	calcpath(1);
+	drawline(1);
 	centeratlastposition();
 	return resolve(detail);
     });
