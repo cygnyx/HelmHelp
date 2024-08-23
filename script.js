@@ -1273,9 +1273,9 @@ function astep(idx, forward) {
     var lidx = idx;
     var d;
     
-    report('at ' + idx + ' search ' + step + ' [0-' + plen + ']');
+    //report('at ' + idx + ' search ' + step + ' [0-' + plen + ']');
     if (plen == 0) {
-	report('at 0 search exit');
+	//report('at 0 search exit');
 	return 0;
     }
     while (step != 0) {
@@ -1285,13 +1285,13 @@ function astep(idx, forward) {
 	} else if (idx == plen)
 	    break;
 	idx += step;
-	report('at ' + idx + ' and lidx ' + lidx);
+	//report('at ' + idx + ' and lidx ' + lidx);
 	d = thedst(path[lidx][0] - path[idx][0], path[lidx][1] - path[idx][1]);
 	if (d > zlvl)
 	    break;
 	lidx = idx;
     }
-    report('at ' + idx + ' search exit');
+    //report('at ' + idx + ' search exit');
     return idx;
 }
 
@@ -1314,11 +1314,11 @@ function calcpath(idx) {
     const ni = steps[2]
     
     if (pi == ci || ci == ni) {
-	report("wait for more data in calcpath on " + idx);
+	//report("wait for more data in calcpath on " + idx);
 	return;
     }
 
-    report("using " + pi + " to " + ci + " to " + ni + " in calcpath on " + idx);
+    //report("using " + pi + " to " + ci + " to " + ni + " in calcpath on " + idx);
 
     const c = path[ci];
     const p = path[pi];
@@ -1401,7 +1401,7 @@ function drawline(idx) {
     const dis = c[3];
     const knt = c[4];
     const ang = c[5];
-    const clr = ['#00ff000', '#99ff00', '#eeff00', '#ffff00', '#ffbb00', '#ffee00', '#ffcc00', '#ff9900', '#ff0000'];
+    const clr = ['#00ff000', '#ffff00', '#ffdd00', '#ffbb00', '#ff9900', '#ff7700', '#ff5500', '#ff3300', '#ff1100', '#ff0000'];
     const cl = clr.length;
     var k = Math.trunc(knt);
     var pts = [[lat, lon]];
@@ -1427,11 +1427,11 @@ function drawline(idx) {
 	if (k == tracklines[0][0])
 	    old = true;
 
-    report('set ' + pts[0] + ' k: ' + k + ' old: ' + old)
+    //report('set ' + pts[0] + ' k: ' + k + ' old: ' + old)
 
     if (tracklines.length > 0) {
-	report('set ' + pts[0])
-	report('len: ' + tracklines[0][1]._latlngs.length)
+	//report('set ' + pts[0])
+	//report('len: ' + tracklines[0][1]._latlngs.length)
 	tracklines[0][2].unshift(pts[0]);
 	tracklines[0][1].setLatLngs(tracklines[0][2]);
 	//	tracklines[0][1]._latlngs.push(pts[0]);
@@ -1447,7 +1447,7 @@ function drawline(idx) {
 	if (tracklines.length > 0)
 	    pts = [tracklines[0][2][0], pts[0]]
 
-	report('new: ' + pts + ' k: ' + k)
+	//report('new: ' + pts + ' k: ' + k)
 	tracklines.unshift([k, line, pts]);
    }
 }
@@ -1456,7 +1456,7 @@ function centeratlastposition() {
     const p = path[0];
     const ll = new L.LatLng(p[0], p[1]);
 
-    report('of ' + path.length + ' pan to ' + ll);
+    //report('of ' + path.length + ' pan to ' + ll);
 
     if (currposition) {
 	maplet.removeLayer(currposition);
